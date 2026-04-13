@@ -115,22 +115,43 @@ function enableGyro() {
 }
 
 function onDeviceOrientation(e) {
-  // gamma: left-right tilt (-90 to 90)
-  let gamma = e.gamma || 0;
+  // gamma: left-right tilt in portrait mode (-90 to 90)
+  // beta: front-back tilt (0 to 360)
+  // We need gamma for left-right, but must handle screen orientation
+  let gamma = e.gamma;
+  const beta = e.beta;
 
-  // Calibrate neutral position on first reading
+  // gamma can be null on some devices
+  if (gamma === null || gamma === undefined) return;
+
+  // Handle landscape orientation: swap axes
+  const orientation = screen.orientation?.angle || window.orientation || 0;
+  if (Math.abs(orientation) === 90) {
+    // Landscape: use beta instead of gamma
+    gamma = orientation === 90 ? -(beta - 90) : (beta - 90);
+  }
+
+  // Calibrate neutral on first few readings (average first 5)
   if (gyroNeutral === null) {
-    gyroNeutral = gamma;
+    if (!gyroCalibrationSamples) gyroCalibrationSamples = [];
+    gyroCalibrationSamples.push(gamma);
+    if (gyroCalibrationSamples.length >= 5) {
+      gyroNeutral = gyroCalibrationSamples.reduce((a, b) => a + b, 0) / gyroCalibrationSamples.length;
+      gyroCalibrationSamples = null;
+    }
+    return;
   }
 
   // Subtract neutral offset
   let tilt = gamma - gyroNeutral;
 
+  // Clamp to avoid crazy values on orientation flip
+  tilt = Math.max(-60, Math.min(60, tilt));
+
   // Dead zone
   if (Math.abs(tilt) < GYRO_DEAD_ZONE) {
     tilt = 0;
   } else {
-    // Remap: dead_zone..max_angle → 0..1
     const sign = Math.sign(tilt);
     const magnitude = Math.abs(tilt) - GYRO_DEAD_ZONE;
     const range = GYRO_MAX_ANGLE - GYRO_DEAD_ZONE;
@@ -141,9 +162,12 @@ function onDeviceOrientation(e) {
   gyroSmoothed += (tilt - gyroSmoothed) * GYRO_SMOOTHING;
 }
 
+let gyroCalibrationSamples = null;
+
 // Allow recalibration
 export function recalibrateGyro() {
   gyroNeutral = null;
+  gyroCalibrationSamples = null;
 }
 
 // --- Keyboard ---

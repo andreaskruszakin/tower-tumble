@@ -572,7 +572,15 @@ function showGameOver() {
 
   // Submit score handler
   const onSubmit = () => {
-    const name = nameInput.value.trim().toUpperCase() || 'ANON';
+    const name = nameInput.value.trim().toUpperCase();
+    if (!name) {
+      submitStatus.classList.remove('hidden');
+      submitStatus.textContent = 'ENTER NAME TO SUBMIT';
+      submitStatus.style.color = '#ff6b6b';
+      nameInput.focus();
+      return;
+    }
+    submitStatus.style.color = '#b8e0d2';
     submitScore(name, state.points, floorNum, state.bestCombo);
   };
   submitBtn.onclick = onSubmit;
