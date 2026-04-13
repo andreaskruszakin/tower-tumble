@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Tower Tumble | Vibe Jam 2026</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏗️</text></svg>">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.170.0",
+      "three/addons/": "https://esm.sh/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="ui">
+    <div id="score">FLOOR 0</div>
+    <div id="combo-container" class="hidden">COMBO x2</div>
+    <div id="combo-splash"></div>
+    <div id="biome-name"></div>
+    <div id="momentum-label" class="hidden">MAX SPEED!</div>
+    <div id="alive-count" class="hidden">10 ALIVE</div>
+    <div id="speed-lines"></div>
+    <div id="portal-label" class="hidden">VIBE JAM PORTAL ↗</div>
+    <div id="portal-arrived" class="hidden">JUST ARRIVED!</div>
+    <div id="hint">ARROWS / TILT = MOVE<br>SPACE / TAP = JUMP</div>
+    <div id="game-over" class="hidden">
+      <div class="go-title">GAME OVER</div>
+      <div id="go-height">FLOOR 0</div>
+      <div id="go-combo">BEST COMBO: x0</div>
+      <div class="go-tap">TAP TO RETRY</div>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+  <script async src="https://vibej.am/2026/widget.js"></script>
+</body>
+</html>
