@@ -19,21 +19,55 @@
   <canvas id="game"></canvas>
 
   <div id="ui">
-    <div id="score">FLOOR 0</div>
-    <div id="combo-container" class="hidden">COMBO x2</div>
-    <div id="combo-splash"></div>
-    <div id="biome-name"></div>
-    <div id="momentum-label" class="hidden">MAX SPEED!</div>
-    <div id="alive-count" class="hidden">10 ALIVE</div>
-    <div id="speed-lines"></div>
-    <div id="portal-label" class="hidden">VIBE JAM PORTAL ↗</div>
-    <div id="portal-arrived" class="hidden">JUST ARRIVED!</div>
-    <div id="hint">ARROWS / TILT = MOVE<br>SPACE / TAP = JUMP</div>
+    <!-- Start screen -->
+    <div id="start-screen">
+      <div class="start-title">TOWER<br>TUMBLE</div>
+      <div class="start-rules">
+        <p>CLIMB AS HIGH AS YOU CAN</p>
+        <p class="dim">BUILD SPEED FOR BIGGER JUMPS</p>
+        <p class="dim">BOUNCE OFF WALLS FOR MOMENTUM</p>
+        <p class="dim">SKIP PLATFORMS FOR COMBO POINTS</p>
+        <p class="dim">DON'T FALL BELOW THE SCREEN!</p>
+      </div>
+      <div class="start-controls">
+        <p>KEYBOARD: ARROWS + SPACE</p>
+        <p>MOBILE: TILT + TAP</p>
+      </div>
+      <div class="start-tap">TAP TO START</div>
+      <div class="start-credits">
+        MADE BY <span class="accent">ANDREAS KRUSZAKIN</span><br>
+        BUILT WITH <span class="accent">CLAUDE CODE</span><br>
+        <span class="dim small">VIBE JAM 2026</span>
+      </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" class="hidden">
+      <div id="score">FLOOR 0</div>
+      <div id="points">0 PTS</div>
+      <div id="combo-container" class="hidden">COMBO x2</div>
+      <div id="combo-splash"></div>
+      <div id="biome-name"></div>
+      <div id="momentum-label" class="hidden">MAX SPEED!</div>
+      <div id="speed-lines"></div>
+      <div id="charge-bar"><div id="charge-fill"></div></div>
+    </div>
+
+    <!-- Game Over -->
     <div id="game-over" class="hidden">
       <div class="go-title">GAME OVER</div>
       <div id="go-height">FLOOR 0</div>
+      <div id="go-points">0 PTS</div>
       <div id="go-combo">BEST COMBO: x0</div>
+      <div id="go-best" class="hidden">NEW HIGH SCORE!</div>
+      <div id="go-leaderboard">
+        <div class="lb-title">TOP SCORES</div>
+        <div id="lb-list"></div>
+      </div>
       <div class="go-tap">TAP TO RETRY</div>
+      <div class="go-links">
+        <a href="https://vibej.am/portal/2026" class="portal-link">PLAY MORE GAMES</a>
+      </div>
     </div>
   </div>
 

@@ -1,22 +1,22 @@
 import * as THREE from 'three';
 import { createCharacter, animateCharacter, triggerLandSquash, triggerJumpStretch, triggerBackflip } from './character.js';
-import { initInput, updateInput, input, requestGyroPermission } from './input.js';
+import { initInput, updateInput, input, requestGyroPermission, getChargeRatio } from './input.js';
 import { createCamera, updateCamera, triggerShake, getCamera } from './camera.js';
 import { generatePlatforms, getPlatforms, updatePlatforms, triggerCrumble, getBounciness, cullPlatformsBelowY, extendPlatformsIfNeeded } from './platforms.js';
 import { initVHS, updateVHS, triggerGlitch, renderVHS, setMobileMode } from './vhs.js';
 import { initAudio, resumeAudio, playJump, playLand, playWallBounce, playCombo, playCrumble, playElimination, playRoundStart, startMusic, stopMusic, setMusicIntensity } from './audio.js';
-import { isPortalEntry, portalRef, createExitPortal, createEntryPortal, updatePortals, checkExitPortal, checkEntryPortal, navigateExitPortal, navigateEntryPortal, getPlayerName, setPlayerName } from './portal.js';
 import {
   TOWER_WIDTH, HALF_WIDTH, GRAVITY, BASE_JUMP_VELOCITY, MAX_JUMP_VELOCITY,
+  CHARGED_JUMP_BONUS, CHARGE_TIME,
   MOMENTUM_JUMP_SCALE, MAX_HORIZONTAL_SPEED, HORIZONTAL_ACCEL,
   GROUND_FRICTION, AIR_FRICTION, WALL_BOUNCE_FACTOR, WALL_BOUNCE_BOOST,
-  CHAR_WIDTH, CHAR_HEIGHT, PLATFORM_HEIGHT,
+  CHAR_WIDTH, PLATFORM_HEIGHT,
   BIOMES, WALL_COLOR,
   CAMERA_SCROLL_START, CAMERA_SCROLL_ACCEL, CAMERA_SCROLL_INTERVAL, CAMERA_SCROLL_MAX,
-  COMBO_TIERS, CAMERA_DISTANCE,
+  COMBO_TIERS, CAMERA_DISTANCE, LAYER_SPACING,
 } from './constants.js';
 
-// --- Renderer (pixelation handled by post-processing now) ---
+// --- Renderer ---
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -27,24 +27,20 @@ const isMobile = navigator.maxTouchPoints > 0;
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0xFFB7A5, 0.008);
 
-// Flat lighting for pixel art look
+// Flat lighting
 const ambient = new THREE.AmbientLight(0xFFFFFF, 0.85);
 scene.add(ambient);
 const dirLight = new THREE.DirectionalLight(0xFFF0E0, 0.3);
 dirLight.position.set(3, 10, 5);
 scene.add(dirLight);
 
-// Camera
 const camera = createCamera();
-
-// VHS post-processing (pixelation + scanlines + grain + chromatic aberration)
 const vhsComposer = initVHS(renderer, scene, camera);
 if (isMobile) setMobileMode();
 
-// --- Tower walls ---
+// --- Walls ---
 const wallGeo = new THREE.BoxGeometry(0.5, 1200, 1.5);
 let wallMatL, wallMatR, wallL, wallR;
-
 function createWalls(color) {
   if (wallL) { scene.remove(wallL); scene.remove(wallR); }
   wallMatL = new THREE.MeshBasicMaterial({ color });
@@ -58,41 +54,29 @@ function createWalls(color) {
 }
 createWalls(WALL_COLOR);
 
-// --- Ground platform ---
+// Ground
 const groundGeo = new THREE.BoxGeometry(TOWER_WIDTH, 0.5, 2);
 const groundMat = new THREE.MeshBasicMaterial({ color: 0x8BBF7A });
 const ground = new THREE.Mesh(groundGeo, groundMat);
 ground.position.set(0, -0.25, 0);
 scene.add(ground);
 
-// --- Sky background ---
+// Sky
 const skyGeo = new THREE.SphereGeometry(180, 16, 8);
 const skyMat = new THREE.MeshBasicMaterial({ color: 0xFFB7A5, side: THREE.BackSide });
 const sky = new THREE.Mesh(skyGeo, skyMat);
 scene.add(sky);
 
-// No red death line — camera bottom IS the death zone (Icy Tower style)
-
-// --- Generate platforms ---
+// Platforms
 let gameSeed = Math.floor(Math.random() * 0xFFFFFFFF);
 generatePlatforms(scene, gameSeed);
 
-// --- Portals ---
-createExitPortal(scene, HALF_WIDTH - 1.5, 0);
-createEntryPortal(scene, -HALF_WIDTH + 1.5, 0);
-const playerName = getPlayerName();
-
-// --- Player character ---
+// Player
 const player = createCharacter(0);
-// Portal entry: start slightly higher for dramatic drop
-if (isPortalEntry) {
-  player.position.set(0, 8, 0);
-} else {
-  player.position.set(0, 0.2, 0);
-}
+player.position.set(0, 0.2, 0);
 scene.add(player);
 
-// --- Shadow ---
+// Shadow
 const shadowGeo = new THREE.PlaneGeometry(0.8, 0.4);
 const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.15 });
 const shadow = new THREE.Mesh(shadowGeo, shadowMat);
@@ -101,53 +85,79 @@ scene.add(shadow);
 
 // --- State ---
 const state = {
-  x: 0, y: isPortalEntry ? 8 : 0.2, vx: 0, vy: 0,
-  isGrounded: !isPortalEntry, lastGroundY: 0,
+  x: 0, y: 0.2, vx: 0, vy: 0,
+  isGrounded: true, lastGroundY: 0,
   alive: true, maxHeight: 0,
   combo: 0, bestCombo: 0,
   currentPlatform: null,
+  points: 0,
 };
 
-// Camera auto-scroll state
-const scroll = {
-  y: -3,           // death line Y position
-  speed: CAMERA_SCROLL_START,
-  gameTime: 0,
+// Death line — follows player, not linear
+const deathLine = {
+  y: -5,
   started: false,
+  gameTime: 0,
 };
 
-// Biome tracking
 let currentBiomeIdx = 0;
+let gameStarted = false; // start screen dismissed
 
-// --- UI ---
+// --- UI refs ---
+const startScreen = document.getElementById('start-screen');
+const hud = document.getElementById('hud');
 const scoreEl = document.getElementById('score');
+const pointsEl = document.getElementById('points');
 const comboEl = document.getElementById('combo-container');
 const splashEl = document.getElementById('combo-splash');
-const hintEl = document.getElementById('hint');
-const gameOverEl = document.getElementById('game-over');
-const goHeightEl = document.getElementById('go-height');
-const goComboEl = document.getElementById('go-combo');
 const biomeNameEl = document.getElementById('biome-name');
 const momentumEl = document.getElementById('momentum-label');
 const speedLinesEl = document.getElementById('speed-lines');
+const chargeBar = document.getElementById('charge-bar');
+const chargeFill = document.getElementById('charge-fill');
+const gameOverEl = document.getElementById('game-over');
+const goHeightEl = document.getElementById('go-height');
+const goPointsEl = document.getElementById('go-points');
+const goComboEl = document.getElementById('go-combo');
+const goBestEl = document.getElementById('go-best');
+const lbList = document.getElementById('lb-list');
 
-let firstInput = false;
 let splashTimeout = null;
 
+// --- Leaderboard (localStorage) ---
+function getLeaderboard() {
+  try { return JSON.parse(localStorage.getItem('tt-leaderboard') || '[]'); }
+  catch { return []; }
+}
+
+function saveToLeaderboard(points, floor) {
+  const lb = getLeaderboard();
+  lb.push({ points, floor, date: Date.now() });
+  lb.sort((a, b) => b.points - a.points);
+  localStorage.setItem('tt-leaderboard', JSON.stringify(lb.slice(0, 10)));
+  return lb[0].points === points; // true if new high score
+}
+
+function renderLeaderboard(currentPoints) {
+  const lb = getLeaderboard();
+  lbList.innerHTML = lb.slice(0, 5).map((entry, i) => {
+    const isYou = entry.points === currentPoints && entry.date > Date.now() - 5000;
+    return `<div class="${isYou ? 'you' : ''}">${i + 1}. ${entry.points} PTS (FL ${entry.floor})</div>`;
+  }).join('');
+}
+
+// --- Combo splash ---
 function showComboSplash(combo) {
-  // Find tier
   let tier = null;
   for (let i = COMBO_TIERS.length - 1; i >= 0; i--) {
     if (combo >= COMBO_TIERS[i].min) { tier = COMBO_TIERS[i]; break; }
   }
   if (!tier) return;
-
   splashEl.textContent = `${tier.label} x${combo}`;
   splashEl.style.color = tier.color;
   splashEl.classList.remove('show');
-  void splashEl.offsetWidth; // reflow
+  void splashEl.offsetWidth;
   splashEl.classList.add('show');
-
   clearTimeout(splashTimeout);
   splashTimeout = setTimeout(() => splashEl.classList.remove('show'), 700);
 }
@@ -161,6 +171,16 @@ function showBiomeName(name) {
 
 // --- Input ---
 initInput(canvas);
+
+// --- Start screen ---
+startScreen.addEventListener('pointerdown', () => {
+  if (gameStarted) return;
+  gameStarted = true;
+  startScreen.classList.add('hidden');
+  hud.classList.remove('hidden');
+  initAudio();
+  resumeAudio();
+});
 
 // --- Resize ---
 window.addEventListener('resize', () => {
@@ -178,38 +198,45 @@ function gameLoop(now) {
 
   updateVHS(dt);
 
+  // Before game starts — just render scene behind start screen
+  if (!gameStarted) {
+    renderVHS() || renderer.render(scene, camera);
+    return;
+  }
+
   if (!state.alive) {
     renderVHS() || renderer.render(scene, camera);
     return;
   }
 
-  updateInput();
+  updateInput(dt);
 
-  // First input starts the game (or portal auto-start)
-  if (!firstInput && (input.horizontal !== 0 || input.jump || isPortalEntry)) {
-    firstInput = true;
-    hintEl.classList.add('hidden');
+  // First real input starts the death line
+  if (!deathLine.started && (input.horizontal !== 0 || input.jump || input.jumpHeld)) {
+    deathLine.started = true;
     requestGyroPermission();
-    scroll.started = true;
-    initAudio();
-    resumeAudio();
     playRoundStart();
     startMusic();
   }
 
-  // --- Auto-scrolling camera (Icy Tower style — camera IS the death zone) ---
-  if (scroll.started) {
-    scroll.gameTime += dt;
-    // Camera accelerates the higher you go — gets relentless
-    const speedUps = Math.floor(scroll.gameTime / CAMERA_SCROLL_INTERVAL);
-    scroll.speed = Math.min(CAMERA_SCROLL_MAX, CAMERA_SCROLL_START + speedUps * CAMERA_SCROLL_ACCEL);
-    // Also boost speed based on player height (the higher, the faster)
-    const heightBonus = Math.min(1.5, state.maxHeight * 0.003);
-    scroll.y += (scroll.speed + heightBonus) * dt;
+  // --- Death line follows player (Icy Tower style) ---
+  if (deathLine.started) {
+    deathLine.gameTime += dt;
 
-    // Death: player falls below the camera bottom
-    const cameraBottom = getCamera().position.y - 8;
-    if (state.y < cameraBottom) {
+    // Death line speed: base + accelerates over time
+    const speedUps = Math.floor(deathLine.gameTime / CAMERA_SCROLL_INTERVAL);
+    const baseSpeed = Math.min(CAMERA_SCROLL_MAX, CAMERA_SCROLL_START + speedUps * CAMERA_SCROLL_ACCEL);
+
+    // Death line tries to follow player but with a delay — if you stop climbing, it catches up
+    const targetY = state.maxHeight - 12; // always 12 units below your peak
+    const chaseSpeed = Math.max(baseSpeed, (targetY - deathLine.y) * 0.3);
+    deathLine.y += Math.max(baseSpeed, Math.min(chaseSpeed, baseSpeed * 3)) * dt;
+
+    // Never let death line go above player minus a margin
+    deathLine.y = Math.min(deathLine.y, state.maxHeight - 6);
+
+    // Death: fall below death line
+    if (state.y < deathLine.y) {
       showGameOver();
       return;
     }
@@ -217,7 +244,7 @@ function gameLoop(now) {
 
   // --- Platforms ---
   extendPlatformsIfNeeded(state.y);
-  updatePlatforms(dt, scroll.gameTime);
+  updatePlatforms(dt, deathLine.gameTime);
 
   // --- Biome transitions ---
   const biome = getCurrentBiome(state.y);
@@ -226,16 +253,15 @@ function gameLoop(now) {
     currentBiomeIdx = biomeIdx;
     showBiomeName(biome.name);
   }
-  // Smoothly transition colors
   lerpSceneColors(biome, dt);
 
   // --- Movement ---
+  const speedRatio = Math.abs(state.vx) / MAX_HORIZONTAL_SPEED;
   state.vx += input.horizontal * HORIZONTAL_ACCEL * dt;
   state.vx *= state.isGrounded ? GROUND_FRICTION : AIR_FRICTION;
   state.vx = Math.max(-MAX_HORIZONTAL_SPEED, Math.min(MAX_HORIZONTAL_SPEED, state.vx));
 
   // Momentum feedback
-  const speedRatio = Math.abs(state.vx) / MAX_HORIZONTAL_SPEED;
   if (speedRatio > 0.8) {
     momentumEl.classList.remove('hidden');
     speedLinesEl.style.opacity = (speedRatio - 0.8) * 3;
@@ -244,9 +270,23 @@ function gameLoop(now) {
     speedLinesEl.style.opacity = 0;
   }
 
-  // --- Jump ---
+  // --- Charge bar ---
+  if (input.jumpHeld && state.isGrounded) {
+    chargeBar.classList.add('visible');
+    const ratio = getChargeRatio();
+    chargeFill.style.width = (ratio * 100) + '%';
+    chargeFill.classList.toggle('full', ratio >= 0.95);
+  } else {
+    chargeBar.classList.remove('visible');
+  }
+
+  // --- Jump (on release) ---
   if (input.consumeJump() && state.isGrounded) {
+    const chargeRatio = getChargeRatio();
     let jumpVel = BASE_JUMP_VELOCITY + (MAX_JUMP_VELOCITY - BASE_JUMP_VELOCITY) * speedRatio * MOMENTUM_JUMP_SCALE;
+    // Charge bonus
+    jumpVel += chargeRatio * CHARGED_JUMP_BONUS;
+    // Bouncy platform boost
     if (state.currentPlatform) {
       jumpVel *= getBounciness(state.currentPlatform);
     }
@@ -256,6 +296,8 @@ function gameLoop(now) {
     state.currentPlatform = null;
     triggerJumpStretch(player);
     playJump(speedRatio);
+    // Reset charge
+    input.chargeTime = 0;
   }
 
   // Gravity
@@ -284,8 +326,8 @@ function gameLoop(now) {
   let landed = false;
 
   if (state.vy <= 0) {
-    // Ground (only if scroll hasn't passed it)
-    if (state.y <= 0.2 && scroll.y < -1) {
+    // Ground (only if death line hasn't passed it)
+    if (state.y <= 0.2 && deathLine.y < -1) {
       state.y = 0.2;
       if (!state.isGrounded) onLand(0, null);
       state.vy = 0;
@@ -297,7 +339,7 @@ function gameLoop(now) {
     if (!landed) {
       for (const p of platforms) {
         if (!p.active) continue;
-        if (Math.abs(p.y - state.y) > 2.5) continue;
+        if (Math.abs(p.y - state.y) > 2) continue;
 
         const pLeft = p.x - p.width / 2;
         const pRight = p.x + p.width / 2;
@@ -324,13 +366,11 @@ function gameLoop(now) {
     // Walk-off-edge
     if (!landed && state.isGrounded) {
       let onPlatform = false;
-      if (state.y <= 0.3 && scroll.y < -1) {
+      if (state.y <= 0.3 && deathLine.y < -1) {
         onPlatform = true;
       } else if (state.currentPlatform && state.currentPlatform.active) {
         const p = state.currentPlatform;
-        const pLeft = p.x - p.width / 2;
-        const pRight = p.x + p.width / 2;
-        if (state.x + halfChar > pLeft && state.x - halfChar < pRight) {
+        if (state.x + halfChar > p.x - p.width / 2 && state.x - halfChar < p.x + p.width / 2) {
           onPlatform = true;
           state.y = p.y + PLATFORM_HEIGHT / 2;
         }
@@ -344,12 +384,20 @@ function gameLoop(now) {
     state.isGrounded = false;
   }
 
-  // --- Score ---
-  const floorNum = Math.floor(state.y / 1.8);
-  if (state.y > state.maxHeight) state.maxHeight = state.y;
+  // --- Score & Points ---
+  const floorNum = Math.floor(state.y / LAYER_SPACING);
+  if (state.y > state.maxHeight) {
+    // Award points for new height
+    const oldFloor = Math.floor(state.maxHeight / LAYER_SPACING);
+    const newFloor = floorNum;
+    if (newFloor > oldFloor) {
+      state.points += (newFloor - oldFloor) * 10;
+    }
+    state.maxHeight = state.y;
+  }
   scoreEl.textContent = `FLOOR ${floorNum}`;
+  pointsEl.textContent = `${state.points} PTS`;
 
-  // Combo display
   if (state.combo > 1) {
     comboEl.classList.remove('hidden');
     comboEl.textContent = `COMBO x${state.combo}`;
@@ -366,31 +414,16 @@ function gameLoop(now) {
   shadow.position.set(state.x, groundY + 0.01, 0.5);
   shadow.material.opacity = Math.max(0.03, 0.15 - (state.y - groundY) * 0.008);
 
-  // Camera — auto-scrolls up, follows player if they're higher
-  const cameraTarget = Math.max(scroll.y + 6, state.y);
-  updateCamera(cameraTarget, state.x, dt);
+  // Camera follows player (death line is separate)
+  updateCamera(state.y, state.x, dt);
   sky.position.y = getCamera().position.y;
 
-  // Portals
-  updatePortals(dt, scroll.gameTime);
-  // Check portal collisions (only near ground level)
-  if (state.y < 3 && state.isGrounded) {
-    if (checkExitPortal(state.x, state.y)) {
-      navigateExitPortal(playerName, '');
-      return;
-    }
-    if (checkEntryPortal(state.x, state.y)) {
-      navigateEntryPortal();
-      return;
-    }
-  }
+  // Cull platforms below death line
+  cullPlatformsBelowY(deathLine.y);
 
-  // Cull far platforms
-  cullPlatformsBelowY(scroll.y);
-
-  // Music intensity scales with scroll speed
-  if (scroll.started) {
-    const intensity = Math.min(1, scroll.gameTime / 90);
+  // Music intensity
+  if (deathLine.started) {
+    const intensity = Math.min(1, deathLine.gameTime / 90);
     setMusicIntensity(intensity);
   }
 
@@ -403,15 +436,17 @@ function onLand(platformY, platform) {
   triggerLandSquash(player);
   playLand();
 
-  const floorsClimbed = Math.floor((platformY - state.lastGroundY) / 1.8);
+  const floorsClimbed = Math.floor((platformY - state.lastGroundY) / LAYER_SPACING);
   if (floorsClimbed > 1) {
     state.combo = floorsClimbed;
     if (state.combo > state.bestCombo) state.bestCombo = state.combo;
 
+    // Points: combo multiplier
+    state.points += state.combo * state.combo * 5;
+
     comboEl.classList.add('pop');
     setTimeout(() => comboEl.classList.remove('pop'), 120);
 
-    // Splash text + audio + backflip for combos
     if (state.combo >= 2) {
       showComboSplash(state.combo);
       playCombo(state.combo);
@@ -424,7 +459,6 @@ function onLand(platformY, platform) {
     state.combo = 0;
   }
 
-  // Trigger crumble audio
   if (platform && platform.type === 1 && platform.crumbleTimer >= 0) {
     playCrumble();
   }
@@ -433,37 +467,31 @@ function onLand(platformY, platform) {
 }
 
 function findGroundBelow(x, y, platforms) {
-  let best = Math.max(0, scroll.y);
+  let best = Math.max(0, deathLine.y);
   const halfChar = CHAR_WIDTH / 2;
   for (const p of platforms) {
     if (!p.active) continue;
     if (p.y < y && p.y > best) {
-      const pLeft = p.x - p.width / 2;
-      const pRight = p.x + p.width / 2;
-      if (x + halfChar > pLeft && x - halfChar < pRight) best = p.y;
+      if (x + halfChar > p.x - p.width / 2 && x - halfChar < p.x + p.width / 2) best = p.y;
     }
   }
   return best;
 }
 
 function getCurrentBiome(height) {
-  for (const b of BIOMES) {
-    if (height < b.maxY) return b;
-  }
+  for (const b of BIOMES) { if (height < b.maxY) return b; }
   return BIOMES[BIOMES.length - 1];
 }
 
-// Smoothly transition scene colors to match biome
 const _targetSky = new THREE.Color();
 const _targetFog = new THREE.Color();
 const _targetWall = new THREE.Color();
 
 function lerpSceneColors(biome, dt) {
-  const speed = 2.0 * dt; // transition speed
+  const speed = 2.0 * dt;
   _targetSky.setHex(biome.sky);
   _targetFog.setHex(biome.fog);
   _targetWall.setHex(biome.wall);
-
   skyMat.color.lerp(_targetSky, speed);
   scene.fog.color.lerp(_targetFog, speed);
   if (wallMatL) wallMatL.color.lerp(_targetWall, speed);
@@ -477,9 +505,20 @@ function showGameOver() {
   playElimination();
   stopMusic();
 
-  const floorNum = Math.floor(state.maxHeight / 1.8);
+  const floorNum = Math.floor(state.maxHeight / LAYER_SPACING);
+  const isNewBest = saveToLeaderboard(state.points, floorNum);
+
   goHeightEl.textContent = `FLOOR ${floorNum}`;
+  goPointsEl.textContent = `${state.points} PTS`;
   goComboEl.textContent = `BEST COMBO: x${state.bestCombo}`;
+
+  if (isNewBest) {
+    goBestEl.classList.remove('hidden');
+  } else {
+    goBestEl.classList.add('hidden');
+  }
+
+  renderLeaderboard(state.points);
   gameOverEl.classList.remove('hidden');
 
   const restart = () => {
@@ -490,13 +529,11 @@ function showGameOver() {
     state.isGrounded = true; state.alive = true;
     state.maxHeight = 0; state.combo = 0; state.bestCombo = 0;
     state.lastGroundY = 0; state.currentPlatform = null;
+    state.points = 0;
     player.position.set(0, 0.2, 0);
 
-    scroll.y = -3; scroll.speed = CAMERA_SCROLL_START;
-    scroll.gameTime = 0; scroll.started = false;
+    deathLine.y = -5; deathLine.gameTime = 0; deathLine.started = false;
     currentBiomeIdx = 0;
-    firstInput = false;
-    hintEl.classList.remove('hidden');
 
     gameSeed = Math.floor(Math.random() * 0xFFFFFFFF);
     generatePlatforms(scene, gameSeed);

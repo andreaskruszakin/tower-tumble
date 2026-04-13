@@ -1,11 +1,13 @@
-import { GYRO_DEAD_ZONE, GYRO_MAX_ANGLE, GYRO_SMOOTHING, MAX_HORIZONTAL_SPEED } from './constants.js';
+import { GYRO_DEAD_ZONE, GYRO_MAX_ANGLE, GYRO_SMOOTHING, MAX_HORIZONTAL_SPEED, CHARGE_TIME } from './constants.js';
 
 // Unified input system: gyroscope (mobile) + keyboard (desktop) + touch fallback
 // Exposes: input.horizontal (-1 to 1), input.jump (boolean, consumed on read)
 
 export const input = {
-  horizontal: 0,     // -1 (left) to 1 (right)
-  jump: false,        // true for one frame when jump pressed
+  horizontal: 0,       // -1 (left) to 1 (right)
+  jump: false,          // true for one frame when jump released
+  jumpHeld: false,      // true while jump button is held
+  chargeTime: 0,        // how long jump was held (seconds, 0 to CHARGE_TIME)
   _jumpConsumed: false,
 
   consumeJump() {
@@ -56,21 +58,28 @@ export function initInput(canvas) {
   }
 }
 
-// Called each frame to update input.horizontal
-export function updateInput() {
+// Called each frame to update input.horizontal and charge timer
+export function updateInput(dt) {
   if (gyroAvailable && gyroPermissionGranted) {
-    // Gyroscope drives horizontal
     input.horizontal = gyroSmoothed;
   } else if (isMobile && touchSide !== 0) {
-    // Touch fallback: left/right halves
     input.horizontal = touchSide;
   } else {
-    // Keyboard
     let h = 0;
     if (keysDown.has('ArrowLeft') || keysDown.has('KeyA')) h -= 1;
     if (keysDown.has('ArrowRight') || keysDown.has('KeyD')) h += 1;
     input.horizontal = h;
   }
+
+  // Charge jump while held
+  if (input.jumpHeld && dt) {
+    input.chargeTime = Math.min(CHARGE_TIME, input.chargeTime + dt);
+  }
+}
+
+// Get charge ratio 0..1
+export function getChargeRatio() {
+  return Math.min(1, input.chargeTime / CHARGE_TIME);
 }
 
 export function isGyroActive() {
@@ -142,22 +151,32 @@ function onKeyDown(e) {
 
   if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
     e.preventDefault();
-    input.jump = true;
-    input._jumpConsumed = false;
+    if (!input.jumpHeld) {
+      input.jumpHeld = true;
+      input.chargeTime = 0;
+    }
   }
 }
 
 function onKeyUp(e) {
   keysDown.delete(e.code);
+
+  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+    if (input.jumpHeld) {
+      input.jumpHeld = false;
+      input.jump = true;
+      input._jumpConsumed = false;
+    }
+  }
 }
 
 // --- Touch / Pointer ---
 function onPointerDown(e) {
   e.preventDefault();
 
-  // Jump on any tap
-  input.jump = true;
-  input._jumpConsumed = false;
+  // Start charging jump
+  input.jumpHeld = true;
+  input.chargeTime = 0;
 
   // If gyro not available, use touch position for direction
   if (!gyroAvailable || !gyroPermissionGranted) {
@@ -168,6 +187,13 @@ function onPointerDown(e) {
 
 function onPointerUp(e) {
   touchSide = 0;
+
+  // Release = jump with accumulated charge
+  if (input.jumpHeld) {
+    input.jumpHeld = false;
+    input.jump = true;
+    input._jumpConsumed = false;
+  }
 }
 
 // iOS gyroscope requires user gesture to request permission

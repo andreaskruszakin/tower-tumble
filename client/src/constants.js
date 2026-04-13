@@ -7,24 +7,26 @@ export const HALF_WIDTH = TOWER_WIDTH / 2;
 export const GRAVITY = -26;
 export const BASE_JUMP_VELOCITY = 8;
 export const MAX_JUMP_VELOCITY = 16;
+export const CHARGED_JUMP_BONUS = 5;     // extra velocity from full charge
+export const CHARGE_TIME = 0.4;           // seconds to full charge
 export const MOMENTUM_JUMP_SCALE = 1.0;
 export const MAX_HORIZONTAL_SPEED = 10;
 export const HORIZONTAL_ACCEL = 28;
 export const GROUND_FRICTION = 0.88;
 export const AIR_FRICTION = 0.98;
-export const WALL_BOUNCE_FACTOR = 0.95;
-export const WALL_BOUNCE_BOOST = 2.0;
+export const WALL_BOUNCE_FACTOR = 1.05;   // retain + gain speed on wall bounce
+export const WALL_BOUNCE_BOOST = 3.0;     // big horizontal kick off walls
 
 // Character
 export const CHAR_WIDTH = 0.8;
 export const CHAR_HEIGHT = 1.4;
 
-// Platforms — sparse but close together vertically
+// Platforms — varied widths, very close vertically
 export const PLATFORM_HEIGHT = 0.35;
-export const PLATFORM_MIN_WIDTH = 1.6;
-export const PLATFORM_MAX_WIDTH = 3.5;
-export const LAYER_SPACING = 1.2;         // very close — easy to hop between
-export const MAX_PLATFORMS_PER_LAYER = 2;  // sparse — max 2 per layer
+export const PLATFORM_MIN_WIDTH = 1.0;    // tiny platforms exist
+export const PLATFORM_MAX_WIDTH = 5.0;    // long platforms too
+export const LAYER_SPACING = 0.95;        // very close — easy hop between
+export const MAX_PLATFORMS_PER_LAYER = 2;
 export const TOTAL_LAYERS = 600;
 export const GENERATE_AHEAD = 60;
 
