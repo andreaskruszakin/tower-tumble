@@ -586,15 +586,11 @@ function showGameOver() {
   submitBtn.onclick = onSubmit;
   nameInput.onkeydown = (e) => { if (e.key === 'Enter') onSubmit(); };
 
-  // Restart on tap (but not on the input/button area)
-  const restart = (e) => {
-    // Don't restart if tapping input, button, leaderboard, or links
-    if (e.target === nameInput || e.target === submitBtn) return;
-    if (e.target.closest('#name-input-row') || e.target.closest('#go-leaderboard')) return;
-    if (e.target.closest('.go-links') || e.target.tagName === 'A') return;
-
+  // Restart via dedicated button only
+  const restartBtn = document.getElementById('restart-btn');
+  const restart = () => {
     gameOverEl.classList.add('hidden');
-    gameOverEl.removeEventListener('pointerdown', restart);
+    restartBtn.removeEventListener('pointerdown', restart);
     submitBtn.onclick = null;
     nameInput.onkeydown = null;
 
@@ -611,7 +607,7 @@ function showGameOver() {
     gameSeed = Math.floor(Math.random() * 0xFFFFFFFF);
     generatePlatforms(scene, gameSeed);
   };
-  gameOverEl.addEventListener('pointerdown', restart);
+  restartBtn.addEventListener('pointerdown', restart);
 }
 
 requestAnimationFrame(gameLoop);

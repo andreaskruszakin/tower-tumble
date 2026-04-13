@@ -78,8 +78,8 @@ export const BIOMES = [
     wall: 0xC4A882,
     platStatic: 0x8BBF7A, platCrumble: 0xC4A060,
     platBouncy: 0xF0A0B8, platMoving: 0x7AB5CC, platSpike: 0xCC3333,
-    density: 1.0,       // full platform density
-    spikeChance: 0,     // no spikes
+    density: 1.0,
+    spikeChance: 0,     // no spikes in first 4 biomes
   },
   {
     maxY: 80,
@@ -99,7 +99,7 @@ export const BIOMES = [
     platStatic: 0x8A6040, platCrumble: 0xA04020,
     platBouncy: 0xE08020, platMoving: 0xC04040, platSpike: 0xDD2200,
     density: 0.75,
-    spikeChance: 0.08,  // spikes start appearing
+    spikeChance: 0,     // no spikes yet
   },
   {
     maxY: 170,
@@ -109,7 +109,7 @@ export const BIOMES = [
     platStatic: 0xC0B0E0, platCrumble: 0x8070A0,
     platBouncy: 0xE0D060, platMoving: 0x60C0E0, platSpike: 0xFF3366,
     density: 0.65,
-    spikeChance: 0.12,
+    spikeChance: 0,     // no spikes yet
   },
   {
     maxY: 230,

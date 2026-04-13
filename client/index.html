@@ -60,21 +60,26 @@
       <div id="go-points">0 PTS</div>
       <div id="go-combo">BEST COMBO: x0</div>
       <div id="go-best" class="hidden">NEW HIGH SCORE!</div>
-      <!-- Name input -->
-      <div id="name-input-row">
-        <input type="text" id="name-input" maxlength="12" placeholder="YOUR NAME" autocomplete="off" spellcheck="false">
-        <button id="submit-score">SUBMIT</button>
+      <!-- Interactive zone — taps here do NOT restart -->
+      <div id="go-interactive">
+        <!-- Name input -->
+        <div id="name-input-row">
+          <input type="text" id="name-input" maxlength="12" placeholder="YOUR NAME" autocomplete="off" spellcheck="false">
+          <button id="submit-score">SUBMIT</button>
+        </div>
+        <div id="submit-status" class="hidden"></div>
+        <!-- Global leaderboard -->
+        <div id="go-leaderboard">
+          <div class="lb-title">GLOBAL TOP SCORES</div>
+          <div id="lb-list">LOADING...</div>
+        </div>
+        <!-- Links -->
+        <div class="go-links">
+          <a href="https://vibej.am/2026/" target="_blank" rel="noopener" class="portal-link">PLAY MORE GAMES</a>
+        </div>
       </div>
-      <div id="submit-status" class="hidden"></div>
-      <!-- Global leaderboard -->
-      <div id="go-leaderboard">
-        <div class="lb-title">GLOBAL TOP SCORES</div>
-        <div id="lb-list">LOADING...</div>
-      </div>
-      <div class="go-tap">TAP TO RETRY</div>
-      <div class="go-links">
-        <a href="https://vibej.am/2026/" target="_blank" rel="noopener" class="portal-link">PLAY MORE GAMES</a>
-      </div>
+      <!-- Restart button -->
+      <button id="restart-btn">PLAY AGAIN</button>
     </div>
   </div>
 
