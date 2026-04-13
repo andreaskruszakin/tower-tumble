@@ -88,6 +88,11 @@ export function createCharacter(colorIndex = 0, isGhost = false) {
     armSwing: 0,
     legSwing: 0,
     facingRight: true,
+    // Backflip state
+    flipping: false,
+    flipProgress: 0,    // 0 to 1
+    flipSpeed: 0,       // radians per second
+    flipCount: 0,       // how many flips to do
   };
 
   return group;
@@ -107,6 +112,30 @@ export function animateCharacter(group, dt, velocityX, velocityY, isGrounded) {
 
   const speed = Math.abs(velocityX);
   const t = performance.now() * 0.001;
+
+  // --- BACKFLIP ---
+  if (ud.flipping) {
+    ud.flipProgress += ud.flipSpeed * dt;
+    const totalRotation = ud.flipCount * Math.PI * 2;
+    const currentAngle = ud.flipProgress * totalRotation;
+    // Rotate the entire character group on X axis
+    body.rotation.x = currentAngle;
+    head.rotation.x = currentAngle;
+    armL.rotation.x = -2.0; // tuck arms
+    armR.rotation.x = -2.0;
+    legL.rotation.x = 0.8;  // tuck legs
+    legR.rotation.x = 0.8;
+    armL.rotation.z = -0.6;
+    armR.rotation.z = 0.6;
+
+    if (ud.flipProgress >= 1) {
+      ud.flipping = false;
+      ud.flipProgress = 0;
+      body.rotation.x = 0;
+      head.rotation.x = 0;
+    }
+    return; // skip normal animation during flip
+  }
 
   // Face direction
   if (speed > 0.5) {
@@ -250,6 +279,18 @@ export function triggerLandSquash(group) {
 export function triggerJumpStretch(group) {
   group.userData.scaleY = 0.8;
   group.userData.targetScaleY = 1.15;
+}
+
+// Trigger backflip on big combos
+// combo 2-3: single flip, 4-7: double flip, 8+: triple flip
+export function triggerBackflip(group, comboLevel) {
+  const ud = group.userData;
+  if (ud.flipping) return; // don't interrupt existing flip
+  ud.flipping = true;
+  ud.flipProgress = 0;
+  ud.flipCount = comboLevel >= 8 ? 3 : comboLevel >= 4 ? 2 : 1;
+  // Flip speed — complete all flips during the jump arc (~0.8s)
+  ud.flipSpeed = 1.2 + comboLevel * 0.1;
 }
 
 // Color utilities
