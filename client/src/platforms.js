@@ -15,8 +15,9 @@ const _box = new THREE.BoxGeometry(1, 1, 1);
 let platforms = [];
 let platformGroup = null;
 let highestLayer = 0;
-let rngState = null; // persistent RNG for streaming generation
+let rngState = null;
 let currentScene = null;
+let recentPlatforms = []; // last ~20 platforms for cross-layer overlap checks
 
 export function getPlatforms() {
   return platforms;
@@ -56,6 +57,7 @@ export function generatePlatforms(scene, seed) {
   platforms = [];
   highestLayer = 0;
   currentScene = scene;
+  recentPlatforms = [];
 
   rngState = createRNG(seed);
 
@@ -96,24 +98,44 @@ function generateLayer(layer) {
 
     let x = rngRange(rngState, -maxX, maxX);
     let placed = false;
-    for (let attempt = 0; attempt < 8; attempt++) {
+    const platY = y + rngRange(rngState, -0.12, 0.12);
+
+    for (let attempt = 0; attempt < 10; attempt++) {
       let overlaps = false;
+
+      // Check against same-layer platforms
       for (const existing of layerPlats) {
         const gap = 0.4;
-        if (x + width / 2 + gap > existing.x - existing.width / 2 &&
-            x - width / 2 - gap < existing.x + existing.width / 2) {
+        if (x + width / 2 + gap > existing.x - existing.w / 2 &&
+            x - width / 2 - gap < existing.x + existing.w / 2) {
           overlaps = true; break;
         }
       }
+
+      // Check against recent platforms from nearby layers (cross-layer overlap)
+      if (!overlaps) {
+        for (const rp of recentPlatforms) {
+          // Only check if vertically close enough to overlap visually
+          if (Math.abs(rp.y - platY) > PLATFORM_HEIGHT * 2) continue;
+          const gap = 0.3;
+          if (x + width / 2 + gap > rp.x - rp.w / 2 &&
+              x - width / 2 - gap < rp.x + rp.w / 2) {
+            overlaps = true; break;
+          }
+        }
+      }
+
       if (!overlaps) { placed = true; break; }
       x = rngRange(rngState, -maxX, maxX);
     }
     if (!placed) continue;
 
-    const yOffset = rngRange(rngState, -0.12, 0.12);
     const color = getPlatColor(type, biome);
-    const platform = createPlatform(layer * 100 + i, x, y + yOffset, width, type, color, rngState);
-    layerPlats.push({ x, width });
+    const platform = createPlatform(layer * 100 + i, x, platY, width, type, color, rngState);
+    layerPlats.push({ x, w: width });
+    recentPlatforms.push({ x, y: platY, w: width });
+    // Keep only last 20 for performance
+    if (recentPlatforms.length > 20) recentPlatforms.shift();
     platforms.push(platform);
     platformGroup.add(platform.mesh);
   }
