@@ -280,12 +280,24 @@ function gameLoop(now) {
     chargeBar.classList.remove('visible');
   }
 
-  // --- Jump (on release) ---
-  if (input.consumeJump() && state.isGrounded) {
+  // --- Jump ---
+  // First tap activates auto-jump mode
+  if (input.consumeJump() && !input.autoJump) {
+    input.autoJump = true;
+  }
+
+  // Auto-jump: jump whenever grounded (hold to charge for bigger jump)
+  const wantsJump = input.autoJump && state.isGrounded && !input.jumpHeld;
+  // Manual charged jump: release after holding
+  const chargedJump = input.consumeJump() && state.isGrounded;
+
+  if ((wantsJump || chargedJump) && state.isGrounded) {
     const chargeRatio = getChargeRatio();
     let jumpVel = BASE_JUMP_VELOCITY + (MAX_JUMP_VELOCITY - BASE_JUMP_VELOCITY) * speedRatio * MOMENTUM_JUMP_SCALE;
-    // Charge bonus
-    jumpVel += chargeRatio * CHARGED_JUMP_BONUS;
+    // Charge bonus (only if actually held)
+    if (chargeRatio > 0.1) {
+      jumpVel += chargeRatio * CHARGED_JUMP_BONUS;
+    }
     // Bouncy platform boost
     if (state.currentPlatform) {
       jumpVel *= getBounciness(state.currentPlatform);
@@ -296,7 +308,6 @@ function gameLoop(now) {
     state.currentPlatform = null;
     triggerJumpStretch(player);
     playJump(speedRatio);
-    // Reset charge
     input.chargeTime = 0;
   }
 
@@ -533,6 +544,7 @@ function showGameOver() {
     player.position.set(0, 0.2, 0);
 
     deathLine.y = -5; deathLine.gameTime = 0; deathLine.started = false;
+    input.autoJump = false;
     currentBiomeIdx = 0;
 
     gameSeed = Math.floor(Math.random() * 0xFFFFFFFF);
