@@ -115,38 +115,34 @@ function enableGyro() {
 }
 
 function onDeviceOrientation(e) {
-  // gamma: left-right tilt in portrait mode (-90 to 90)
-  // beta: front-back tilt (0 to 360)
-  // We need gamma for left-right, but must handle screen orientation
-  let gamma = e.gamma;
-  const beta = e.beta;
+  // Portrait mode (phone held upright):
+  // gamma = left-right tilt (-90 to 90) — this is what we want
+  // beta = front-back tilt (0 to 180 when upright)
+  //
+  // Problem: when beta is near 90 (phone vertical), gamma gets unstable
+  // and can jump. We use gamma directly but with heavy smoothing and
+  // a running calibration that adapts over time.
 
-  // gamma can be null on some devices
+  const gamma = e.gamma;
   if (gamma === null || gamma === undefined) return;
 
-  // Handle landscape orientation: swap axes
-  const orientation = screen.orientation?.angle || window.orientation || 0;
-  if (Math.abs(orientation) === 90) {
-    // Landscape: use beta instead of gamma
-    gamma = orientation === 90 ? -(beta - 90) : (beta - 90);
-  }
-
-  // Calibrate neutral on first few readings (average first 5)
+  // Calibrate: average first 10 readings for a stable neutral
   if (gyroNeutral === null) {
     if (!gyroCalibrationSamples) gyroCalibrationSamples = [];
     gyroCalibrationSamples.push(gamma);
-    if (gyroCalibrationSamples.length >= 5) {
-      gyroNeutral = gyroCalibrationSamples.reduce((a, b) => a + b, 0) / gyroCalibrationSamples.length;
+    if (gyroCalibrationSamples.length >= 10) {
+      // Use median instead of average to ignore outliers
+      const sorted = [...gyroCalibrationSamples].sort((a, b) => a - b);
+      gyroNeutral = sorted[Math.floor(sorted.length / 2)];
       gyroCalibrationSamples = null;
     }
     return;
   }
 
-  // Subtract neutral offset
   let tilt = gamma - gyroNeutral;
 
-  // Clamp to avoid crazy values on orientation flip
-  tilt = Math.max(-60, Math.min(60, tilt));
+  // Clamp: ignore crazy values from gimbal lock
+  if (Math.abs(tilt) > 50) return;
 
   // Dead zone
   if (Math.abs(tilt) < GYRO_DEAD_ZONE) {
@@ -158,8 +154,12 @@ function onDeviceOrientation(e) {
     tilt = sign * Math.min(1, magnitude / range);
   }
 
-  // Exponential moving average smoothing
+  // Heavy smoothing to prevent jitter
   gyroSmoothed += (tilt - gyroSmoothed) * GYRO_SMOOTHING;
+
+  // Slow drift correction: if player isn't touching and tilt is consistently
+  // off-center, nudge neutral toward current gamma (adapts to how they hold it)
+  gyroNeutral += (gamma - gyroNeutral) * 0.001;
 }
 
 let gyroCalibrationSamples = null;
