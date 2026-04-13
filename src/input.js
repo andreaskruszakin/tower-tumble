@@ -87,87 +87,94 @@ export function isGyroActive() {
   return gyroAvailable && gyroPermissionGranted;
 }
 
-// --- Gyroscope ---
+// --- Tilt detection using ACCELEROMETER (not gyroscope) ---
+// DeviceOrientation gamma is broken in portrait mode (gimbal lock).
+// Instead, use DeviceMotion accelerationIncludingGravity.x
+// which directly gives us left-right tilt as a gravity component.
+// Phone flat: x≈0. Tilt right: x>0. Tilt left: x<0.
+// Phone upright in portrait: x still works for left-right tilt.
+
+let accelNeutral = null;
+let accelSamples = null;
+
 async function requestGyro() {
-  // iOS requires permission
-  if (typeof DeviceOrientationEvent !== 'undefined' &&
-      typeof DeviceOrientationEvent.requestPermission === 'function') {
+  // iOS 13+ requires permission for BOTH orientation and motion
+  if (typeof DeviceMotionEvent !== 'undefined' &&
+      typeof DeviceMotionEvent.requestPermission === 'function') {
     try {
-      const result = await DeviceOrientationEvent.requestPermission();
+      const result = await DeviceMotionEvent.requestPermission();
       if (result === 'granted') {
-        enableGyro();
+        enableAccel();
       } else {
-        console.log('Gyro permission denied, using touch fallback');
+        console.log('Motion permission denied, using touch fallback');
       }
     } catch (e) {
-      console.log('Gyro permission error, using touch fallback');
+      console.log('Motion permission error, using touch fallback');
     }
-  } else if ('DeviceOrientationEvent' in window) {
-    // Android / non-permission browsers
-    enableGyro();
+  } else if ('DeviceMotionEvent' in window) {
+    enableAccel();
   }
 }
 
-function enableGyro() {
+function enableAccel() {
   gyroAvailable = true;
   gyroPermissionGranted = true;
-  window.addEventListener('deviceorientation', onDeviceOrientation);
+  accelNeutral = null;
+  accelSamples = [];
+  window.addEventListener('devicemotion', onDeviceMotion);
 }
 
-function onDeviceOrientation(e) {
-  // Portrait mode (phone held upright):
-  // gamma = left-right tilt (-90 to 90) — this is what we want
-  // beta = front-back tilt (0 to 180 when upright)
-  //
-  // Problem: when beta is near 90 (phone vertical), gamma gets unstable
-  // and can jump. We use gamma directly but with heavy smoothing and
-  // a running calibration that adapts over time.
+function onDeviceMotion(e) {
+  const accel = e.accelerationIncludingGravity;
+  if (!accel || accel.x === null) return;
 
-  const gamma = e.gamma;
-  if (gamma === null || gamma === undefined) return;
+  // x-axis: positive = tilt right, negative = tilt left
+  // Range is roughly -10 to 10 (m/s²), 9.8 = full sideways
+  const rawX = accel.x;
 
-  // Calibrate: average first 10 readings for a stable neutral
-  if (gyroNeutral === null) {
-    if (!gyroCalibrationSamples) gyroCalibrationSamples = [];
-    gyroCalibrationSamples.push(gamma);
-    if (gyroCalibrationSamples.length >= 10) {
-      // Use median instead of average to ignore outliers
-      const sorted = [...gyroCalibrationSamples].sort((a, b) => a - b);
-      gyroNeutral = sorted[Math.floor(sorted.length / 2)];
-      gyroCalibrationSamples = null;
+  // Calibrate: median of first 15 samples
+  if (accelNeutral === null) {
+    accelSamples.push(rawX);
+    if (accelSamples.length >= 15) {
+      const sorted = [...accelSamples].sort((a, b) => a - b);
+      accelNeutral = sorted[Math.floor(sorted.length / 2)];
+      accelSamples = null;
     }
     return;
   }
 
-  let tilt = gamma - gyroNeutral;
+  // Subtract neutral (accounts for how user naturally holds phone)
+  let tilt = rawX - accelNeutral;
 
-  // Clamp: ignore crazy values from gimbal lock
-  if (Math.abs(tilt) > 50) return;
+  // On some devices x is inverted — detect and flip if needed
+  // (handled by the dead zone being symmetric)
 
-  // Dead zone
-  if (Math.abs(tilt) < GYRO_DEAD_ZONE) {
+  // Convert m/s² to -1..1 range
+  // Dead zone: ~0.5 m/s² (small tilts ignored)
+  // Max: ~4 m/s² (moderate tilt = full speed, don't need extreme angles)
+  const deadZone = 0.5;
+  const maxAccel = 4.0;
+
+  if (Math.abs(tilt) < deadZone) {
     tilt = 0;
   } else {
     const sign = Math.sign(tilt);
-    const magnitude = Math.abs(tilt) - GYRO_DEAD_ZONE;
-    const range = GYRO_MAX_ANGLE - GYRO_DEAD_ZONE;
-    tilt = sign * Math.min(1, magnitude / range);
+    const magnitude = Math.abs(tilt) - deadZone;
+    tilt = sign * Math.min(1, magnitude / (maxAccel - deadZone));
   }
 
-  // Heavy smoothing to prevent jitter
-  gyroSmoothed += (tilt - gyroSmoothed) * GYRO_SMOOTHING;
+  // Smooth heavily to prevent jitter from vibration
+  gyroSmoothed += (tilt - gyroSmoothed) * 0.12;
 
-  // Slow drift correction: if player isn't touching and tilt is consistently
-  // off-center, nudge neutral toward current gamma (adapts to how they hold it)
-  gyroNeutral += (gamma - gyroNeutral) * 0.001;
+  // Continuous drift correction: slowly nudge neutral toward current reading
+  // This handles the phone being repositioned mid-game
+  accelNeutral += (rawX - accelNeutral) * 0.002;
 }
-
-let gyroCalibrationSamples = null;
 
 // Allow recalibration
 export function recalibrateGyro() {
-  gyroNeutral = null;
-  gyroCalibrationSamples = null;
+  accelNeutral = null;
+  accelSamples = [];
 }
 
 // --- Keyboard ---
