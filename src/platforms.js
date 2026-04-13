@@ -73,6 +73,11 @@ export function generatePlatforms(scene, seed) {
 // Shared layer generation — used by both initial and streaming
 function generateLayer(layer) {
   const y = layer * LAYER_SPACING;
+
+  // Don't spawn platforms in the player's spawn zone (first 2 units of height)
+  // so the character isn't stuck inside a platform at the start
+  if (y < 2.0) return;
+
   const biome = getBiome(y);
   const density = biome.density || 1;
 
