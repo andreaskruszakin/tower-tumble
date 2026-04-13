@@ -219,21 +219,23 @@ function gameLoop(now) {
     startMusic();
   }
 
-  // --- Death line follows player (Icy Tower style) ---
+  // --- Death line — always creeping up, faster the higher you are ---
   if (deathLine.started) {
     deathLine.gameTime += dt;
 
-    // Death line speed: base + accelerates over time
+    // Base speed increases over time
     const speedUps = Math.floor(deathLine.gameTime / CAMERA_SCROLL_INTERVAL);
-    const baseSpeed = Math.min(CAMERA_SCROLL_MAX, CAMERA_SCROLL_START + speedUps * CAMERA_SCROLL_ACCEL);
+    const timeSpeed = Math.min(CAMERA_SCROLL_MAX, CAMERA_SCROLL_START + speedUps * CAMERA_SCROLL_ACCEL);
 
-    // Death line tries to follow player but with a delay — if you stop climbing, it catches up
-    const targetY = state.maxHeight - 12; // always 12 units below your peak
-    const chaseSpeed = Math.max(baseSpeed, (targetY - deathLine.y) * 0.3);
-    deathLine.y += Math.max(baseSpeed, Math.min(chaseSpeed, baseSpeed * 3)) * dt;
+    // Height bonus: the higher you are, the faster the death line moves
+    const heightSpeed = state.maxHeight * 0.008;
 
-    // Never let death line go above player minus a margin
-    deathLine.y = Math.min(deathLine.y, state.maxHeight - 6);
+    // Combined: always pushing up relentlessly
+    const totalSpeed = timeSpeed + heightSpeed;
+    deathLine.y += totalSpeed * dt;
+
+    // Death line can never be more than 10 units below player (tight leash)
+    deathLine.y = Math.max(deathLine.y, state.maxHeight - 10);
 
     // Death: fall below death line
     if (state.y < deathLine.y) {
@@ -242,8 +244,8 @@ function gameLoop(now) {
     }
   }
 
-  // --- Platforms ---
-  extendPlatformsIfNeeded(state.y);
+  // --- Platforms — generate ahead based on max of player and camera ---
+  extendPlatformsIfNeeded(Math.max(state.y, getCamera().position.y));
   updatePlatforms(dt, deathLine.gameTime);
 
   // --- Biome transitions ---
@@ -429,8 +431,8 @@ function gameLoop(now) {
   updateCamera(state.y, state.x, dt);
   sky.position.y = getCamera().position.y;
 
-  // Cull platforms below death line
-  cullPlatformsBelowY(deathLine.y);
+  // Cull platforms — show well ahead of camera so nothing is invisible
+  cullPlatformsBelowY(deathLine.y, getCamera().position.y);
 
   // Music intensity
   if (deathLine.started) {

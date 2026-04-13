@@ -28,7 +28,7 @@ export const PLATFORM_MAX_WIDTH = 5.0;    // long platforms too
 export const LAYER_SPACING = 0.95;        // very close — easy hop between
 export const MAX_PLATFORMS_PER_LAYER = 2;
 export const TOTAL_LAYERS = 600;
-export const GENERATE_AHEAD = 60;
+export const GENERATE_AHEAD = 120;      // generate far ahead so nothing is invisible
 
 // Platform types
 export const PLATFORM_STATIC = 0;
