@@ -17,6 +17,15 @@ export function initAudio() {
 
   try {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // iOS Safari: also try to resume on any touch/click as fallback
+    const unlockAudio = () => {
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume();
+      }
+    };
+    document.addEventListener('touchstart', unlockAudio, { once: false });
+    document.addEventListener('touchend', unlockAudio, { once: false });
+    document.addEventListener('click', unlockAudio, { once: false });
 
     // Master chain: source → lofi filter → master gain → destination
     masterGain = ctx.createGain();
@@ -48,10 +57,17 @@ export function resumeAudio() {
   }
 }
 
+// Try to resume before every sound — ensures mobile audio works
+function ensureRunning() {
+  if (!ctx) return false;
+  if (ctx.state === 'suspended') ctx.resume();
+  return ctx.state === 'running';
+}
+
 // --- Sound effects ---
 
 export function playJump(speedRatio = 0) {
-  if (!ctx) return;
+  if (!ensureRunning()) return;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = 'sine';
@@ -66,7 +82,7 @@ export function playJump(speedRatio = 0) {
 }
 
 export function playLand() {
-  if (!ctx) return;
+  if (!ensureRunning()) return;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = 'square';
@@ -80,7 +96,7 @@ export function playLand() {
 }
 
 export function playWallBounce() {
-  if (!ctx) return;
+  if (!ensureRunning()) return;
   // Snappy noise pop
   const bufSize = ctx.sampleRate * 0.04;
   const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
@@ -98,7 +114,7 @@ export function playWallBounce() {
 }
 
 export function playCombo(level = 2) {
-  if (!ctx) return;
+  if (!ensureRunning()) return;
   // Ascending chime — pitch rises with combo level
   const baseFreq = 400 + level * 60;
   for (let i = 0; i < Math.min(level, 5); i++) {
@@ -117,7 +133,7 @@ export function playCombo(level = 2) {
 }
 
 export function playCrumble() {
-  if (!ctx) return;
+  if (!ensureRunning()) return;
   const bufSize = ctx.sampleRate * 0.25;
   const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
   const data = buf.getChannelData(0);
@@ -139,7 +155,7 @@ export function playCrumble() {
 }
 
 export function playElimination() {
-  if (!ctx) return;
+  if (!ensureRunning()) return;
   // Static burst + low drone
   const bufSize = ctx.sampleRate * 0.4;
   const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
@@ -170,7 +186,7 @@ export function playElimination() {
 }
 
 export function playRoundStart() {
-  if (!ctx) return;
+  if (!ensureRunning()) return;
   // 3-note ascending chime
   const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
   notes.forEach((freq, i) => {
