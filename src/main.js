@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { createCharacter, animateCharacter, triggerLandSquash, triggerJumpStretch, triggerBackflip } from './character.js';
 import { initInput, updateInput, input, requestGyroPermission, getChargeRatio } from './input.js';
 import { createCamera, updateCamera, triggerShake, getCamera } from './camera.js';
-import { generatePlatforms, getPlatforms, updatePlatforms, triggerCrumble, getBounciness, cullPlatformsBelowY, extendPlatformsIfNeeded } from './platforms.js';
+import { generatePlatforms, getPlatforms, updatePlatforms, triggerCrumble, getBounciness, isSpiked, cullPlatformsBelowY, extendPlatformsIfNeeded } from './platforms.js';
 import { initVHS, updateVHS, triggerGlitch, renderVHS, setMobileMode } from './vhs.js';
 import { initAudio, resumeAudio, playJump, playLand, playWallBounce, playCombo, playCrumble, playElimination, playRoundStart, startMusic, stopMusic, setMusicIntensity } from './audio.js';
 import {
@@ -357,6 +357,11 @@ function gameLoop(now) {
               state.currentPlatform = p;
               landed = true;
               triggerCrumble(p);
+              // Spike = instant death
+              if (isSpiked(p)) {
+                showGameOver();
+                return;
+              }
               break;
             }
           }
@@ -415,8 +420,10 @@ function gameLoop(now) {
   shadow.position.set(state.x, groundY + 0.01, 0.5);
   shadow.material.opacity = Math.max(0.03, 0.15 - (state.y - groundY) * 0.008);
 
-  // Camera follows player (death line is separate)
-  updateCamera(state.y, state.x, dt);
+  // Camera tracks death line + player — whichever pushes higher
+  // This means camera constantly creeps up, creating urgency
+  const cameraTarget = Math.max(deathLine.y + 8, state.y);
+  updateCamera(cameraTarget, state.x, dt);
   sky.position.y = getCamera().position.y;
 
   // Cull platforms — show well ahead of camera so nothing is invisible
