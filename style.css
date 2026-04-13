@@ -76,11 +76,24 @@ canvas#game {
   text-shadow: 1px 1px 0 #000;
 }
 
-.start-tap {
-  font-size: 10px;
+#start-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 12px;
+  background: rgba(255,232,200,0.1);
+  border: 2px solid rgba(255,232,200,0.3);
   color: #ffe8c8;
-  animation: pulse 1.5s ease-in-out infinite;
-  margin-top: 8px;
+  padding: 14px 36px;
+  cursor: pointer;
+  border-radius: 3px;
+  margin-top: 12px;
+  pointer-events: auto;
+  transition: background 0.15s, border-color 0.15s;
+}
+#start-btn:hover { background: rgba(255,232,200,0.2); border-color: rgba(255,232,200,0.5); }
+
+.start-links {
+  margin-top: 10px;
+  pointer-events: auto;
 }
 
 .start-credits {

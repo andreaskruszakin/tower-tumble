@@ -233,15 +233,16 @@ function showBiomeName(name) {
 // --- Input ---
 initInput(canvas);
 
-// --- Start screen — this tap IS the user gesture for iOS permissions ---
-startScreen.addEventListener('pointerdown', () => {
+// --- Start screen — button tap IS the user gesture for iOS permissions ---
+const startBtn = document.getElementById('start-btn');
+startBtn.addEventListener('pointerdown', (e) => {
+  e.stopPropagation(); // don't let it bubble
   if (gameStarted) return;
   gameStarted = true;
   startScreen.classList.add('hidden');
   hud.classList.remove('hidden');
   initAudio();
   resumeAudio();
-  // Request tilt permission here (must be from user gesture for iOS Safari)
   requestGyroPermission();
 });
 
