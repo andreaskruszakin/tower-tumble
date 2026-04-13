@@ -117,9 +117,9 @@ export const BIOMES = [
     sky: 0xC0D8E8, fog: 0xE0F0FF,
     wall: 0xA0B8C8,
     platStatic: 0xD0E4F0, platCrumble: 0x90A8B8,
-    platBouncy: 0x70D0FF, platMoving: 0x88C8E0, platSpike: 0x4488CC,
+    platBouncy: 0x70D0FF, platMoving: 0x88C8E0, platSpike: 0xCC0000,
     density: 0.55,
-    spikeChance: 0.15,
+    spikeChance: 0.06,  // spikes start — just a few to learn the mechanic
   },
   {
     maxY: 300,
@@ -127,9 +127,9 @@ export const BIOMES = [
     sky: 0x0A0A1A, fog: 0x050510,
     wall: 0x1A1A2A,
     platStatic: 0x33FF88, platCrumble: 0x888844,
-    platBouncy: 0xFF33CC, platMoving: 0x3388FF, platSpike: 0xFF1144,
-    density: 0.45,      // very sparse
-    spikeChance: 0.18,
+    platBouncy: 0xFF33CC, platMoving: 0x3388FF, platSpike: 0xCC0000,
+    density: 0.45,
+    spikeChance: 0.10,  // slightly more
   },
   {
     maxY: 400,
@@ -137,9 +137,9 @@ export const BIOMES = [
     sky: 0x050005, fog: 0x020002,
     wall: 0x200020,
     platStatic: 0x8844AA, platCrumble: 0x553366,
-    platBouncy: 0xCC66FF, platMoving: 0x6633CC, platSpike: 0xFF0066,
-    density: 0.35,      // extremely sparse
-    spikeChance: 0.22,
+    platBouncy: 0xCC66FF, platMoving: 0x6633CC, platSpike: 0xCC0000,
+    density: 0.35,
+    spikeChance: 0.14,  // getting dangerous
   },
   {
     maxY: 9999,
@@ -147,9 +147,9 @@ export const BIOMES = [
     sky: 0x000000, fog: 0x000000,
     wall: 0x111111,
     platStatic: 0xFFFFFF, platCrumble: 0x888888,
-    platBouncy: 0xFFDD00, platMoving: 0xFF4400, platSpike: 0xFF0000,
-    density: 0.25,      // barely any platforms
-    spikeChance: 0.25,  // 1 in 4 platforms has spikes
+    platBouncy: 0xFFDD00, platMoving: 0xFF4400, platSpike: 0xCC0000,
+    density: 0.25,
+    spikeChance: 0.18,  // hard but not unfair
   },
 ];
 
