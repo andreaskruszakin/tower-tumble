@@ -4,7 +4,7 @@ import {
   TOWER_WIDTH, HALF_WIDTH,
   PLATFORM_HEIGHT, PLATFORM_MIN_WIDTH, PLATFORM_MAX_WIDTH,
   LAYER_SPACING, TOTAL_LAYERS, GENERATE_AHEAD, MAX_PLATFORMS_PER_LAYER,
-  PLATFORM_STATIC, PLATFORM_CRUMBLE, PLATFORM_BOUNCY, PLATFORM_MOVING,
+  PLATFORM_STATIC, PLATFORM_CRUMBLE, PLATFORM_BOUNCY, PLATFORM_MOVING, PLATFORM_SPIKE,
   CRUMBLE_TIME, CRUMBLE_RESPAWN,
   MOVING_AMPLITUDE, MOVING_PERIOD,
   BIOMES,
@@ -37,6 +37,7 @@ function getPlatColor(type, biome) {
     case PLATFORM_CRUMBLE: return biome.platCrumble;
     case PLATFORM_BOUNCY:  return biome.platBouncy;
     case PLATFORM_MOVING:  return biome.platMoving;
+    case PLATFORM_SPIKE:   return biome.platSpike || 0xCC3333;
     default: return biome.platStatic;
   }
 }
@@ -59,46 +60,7 @@ export function generatePlatforms(scene, seed) {
   rngState = createRNG(seed);
 
   for (let layer = 1; layer <= TOTAL_LAYERS; layer++) {
-    const y = layer * LAYER_SPACING;
-    const difficulty = Math.min(1, layer / 200);
-    const biome = getBiome(y);
-
-    const count = Math.max(1, Math.min(MAX_PLATFORMS_PER_LAYER, Math.round(1.5 + (1 - difficulty) * 0.8 + rngState() * 0.5)));
-    const layerPlatforms = []; // track placed platforms to prevent overlap
-
-    for (let i = 0; i < count; i++) {
-      const type = pickType(rngState, layer, difficulty);
-      const width = PLATFORM_MIN_WIDTH + (1 - difficulty * 0.5) * (PLATFORM_MAX_WIDTH - PLATFORM_MIN_WIDTH) * rngState();
-      const maxX = HALF_WIDTH - width / 2 - 0.2;
-
-      // Try up to 8 times to find a non-overlapping position
-      let x = rngRange(rngState, -maxX, maxX);
-      let placed = false;
-      for (let attempt = 0; attempt < 8; attempt++) {
-        let overlaps = false;
-        for (const existing of layerPlatforms) {
-          const gap = 0.4; // minimum gap between platforms
-          const aLeft = x - width / 2 - gap;
-          const aRight = x + width / 2 + gap;
-          const bLeft = existing.x - existing.width / 2;
-          const bRight = existing.x + existing.width / 2;
-          if (aRight > bLeft && aLeft < bRight) {
-            overlaps = true;
-            break;
-          }
-        }
-        if (!overlaps) { placed = true; break; }
-        x = rngRange(rngState, -maxX, maxX); // try new position
-      }
-      if (!placed) continue; // skip this platform if we can't place it
-
-      const yOffset = rngRange(rngState, -0.15, 0.15);
-      const color = getPlatColor(type, biome);
-      const platform = createPlatform(layer * 100 + i, x, y + yOffset, width, type, color, rngState);
-      layerPlatforms.push({ x, width });
-      platforms.push(platform);
-      platformGroup.add(platform.mesh);
-    }
+    generateLayer(layer);
     highestLayer = layer;
   }
 
@@ -106,72 +68,84 @@ export function generatePlatforms(scene, seed) {
   return platforms;
 }
 
-// Stream more platforms as player approaches the top
+// Shared layer generation — used by both initial and streaming
+function generateLayer(layer) {
+  const y = layer * LAYER_SPACING;
+  const biome = getBiome(y);
+  const density = biome.density || 1;
+
+  // Skip some layers based on density (sparser biomes = skip layers)
+  if (density < 1 && rngState() > density) return;
+
+  // At most 2 platforms, often just 1 at higher biomes
+  const maxCount = density > 0.6 ? MAX_PLATFORMS_PER_LAYER : 1;
+  const count = Math.max(1, Math.min(maxCount, Math.round(0.8 + density + rngState() * 0.5)));
+  const layerPlats = [];
+
+  for (let i = 0; i < count; i++) {
+    let type = pickType(rngState, layer, biome);
+
+    // Spike chance based on biome
+    if (biome.spikeChance && rngState() < biome.spikeChance) {
+      type = PLATFORM_SPIKE;
+    }
+
+    const widthRange = density > 0.5 ? 1 : 0.7; // narrower platforms in hard biomes
+    const width = PLATFORM_MIN_WIDTH + widthRange * (PLATFORM_MAX_WIDTH - PLATFORM_MIN_WIDTH) * rngState();
+    const maxX = HALF_WIDTH - width / 2 - 0.2;
+
+    let x = rngRange(rngState, -maxX, maxX);
+    let placed = false;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      let overlaps = false;
+      for (const existing of layerPlats) {
+        const gap = 0.4;
+        if (x + width / 2 + gap > existing.x - existing.width / 2 &&
+            x - width / 2 - gap < existing.x + existing.width / 2) {
+          overlaps = true; break;
+        }
+      }
+      if (!overlaps) { placed = true; break; }
+      x = rngRange(rngState, -maxX, maxX);
+    }
+    if (!placed) continue;
+
+    const yOffset = rngRange(rngState, -0.12, 0.12);
+    const color = getPlatColor(type, biome);
+    const platform = createPlatform(layer * 100 + i, x, y + yOffset, width, type, color, rngState);
+    layerPlats.push({ x, width });
+    platforms.push(platform);
+    platformGroup.add(platform.mesh);
+  }
+}
+
+// Stream more platforms
 export function extendPlatformsIfNeeded(playerY) {
   if (!rngState || !platformGroup || !currentScene) return;
 
   const highestY = highestLayer * LAYER_SPACING;
-  if (playerY + GENERATE_AHEAD < highestY) return; // still have headroom
+  if (playerY + GENERATE_AHEAD < highestY) return;
 
-  // Generate 100 more layers
   const targetLayer = highestLayer + 100;
   for (let layer = highestLayer + 1; layer <= targetLayer; layer++) {
-    const y = layer * LAYER_SPACING;
-    const difficulty = Math.min(1, layer / 200);
-    const biome = getBiome(y);
-    const count = Math.max(1, Math.min(MAX_PLATFORMS_PER_LAYER, Math.round(1.5 + (1 - difficulty) * 0.8 + rngState() * 0.5)));
-    const layerPlats = [];
-
-    for (let i = 0; i < count; i++) {
-      const type = pickType(rngState, layer, difficulty);
-      const width = PLATFORM_MIN_WIDTH + (1 - difficulty * 0.5) * (PLATFORM_MAX_WIDTH - PLATFORM_MIN_WIDTH) * rngState();
-      const maxX = HALF_WIDTH - width / 2 - 0.2;
-
-      let x = rngRange(rngState, -maxX, maxX);
-      let placed = false;
-      for (let attempt = 0; attempt < 8; attempt++) {
-        let overlaps = false;
-        for (const existing of layerPlats) {
-          const gap = 0.4;
-          if (x + width / 2 + gap > existing.x - existing.width / 2 &&
-              x - width / 2 - gap < existing.x + existing.width / 2) {
-            overlaps = true; break;
-          }
-        }
-        if (!overlaps) { placed = true; break; }
-        x = rngRange(rngState, -maxX, maxX);
-      }
-      if (!placed) continue;
-
-      const yOffset = rngRange(rngState, -0.15, 0.15);
-      const color = getPlatColor(type, biome);
-      const platform = createPlatform(layer * 100 + i, x, y + yOffset, width, type, color, rngState);
-      layerPlats.push({ x, width });
-      platforms.push(platform);
-      platformGroup.add(platform.mesh);
-    }
+    generateLayer(layer);
     highestLayer = layer;
   }
 }
 
-function pickType(rng, layer, difficulty) {
+function pickType(rng, layer, biome) {
   const roll = rng();
-  if (layer < 8) return PLATFORM_STATIC;
-  if (layer < 12) return roll < 0.85 ? PLATFORM_STATIC : PLATFORM_BOUNCY;
-  if (layer < 25) {
-    if (roll < 0.55) return PLATFORM_STATIC;
-    if (roll < 0.78) return PLATFORM_CRUMBLE;
+  if (layer < 10) return PLATFORM_STATIC;
+  if (layer < 20) return roll < 0.8 ? PLATFORM_STATIC : PLATFORM_BOUNCY;
+  if (layer < 40) {
+    if (roll < 0.45) return PLATFORM_STATIC;
+    if (roll < 0.7) return PLATFORM_CRUMBLE;
     return PLATFORM_BOUNCY;
   }
-  if (layer < 50) {
-    if (roll < 0.35) return PLATFORM_STATIC;
-    if (roll < 0.6) return PLATFORM_CRUMBLE;
-    if (roll < 0.8) return PLATFORM_BOUNCY;
-    return PLATFORM_MOVING;
-  }
-  if (roll < 0.15) return PLATFORM_STATIC;
-  if (roll < 0.4) return PLATFORM_CRUMBLE;
-  if (roll < 0.65) return PLATFORM_BOUNCY;
+  // Beyond layer 40: more varied
+  if (roll < 0.2) return PLATFORM_STATIC;
+  if (roll < 0.45) return PLATFORM_CRUMBLE;
+  if (roll < 0.7) return PLATFORM_BOUNCY;
   return PLATFORM_MOVING;
 }
 
@@ -213,7 +187,6 @@ function createPlatform(id, x, y, width, type, color, rng) {
   }
 
   if (type === PLATFORM_MOVING) {
-    // Arrow dots on surface
     const dotMat = new THREE.MeshBasicMaterial({ color: lightenHex(color, 0.2) });
     for (let d = -0.3; d <= 0.3; d += 0.3) {
       const dot = new THREE.Mesh(_box, dotMat);
@@ -221,6 +194,23 @@ function createPlatform(id, x, y, width, type, color, rng) {
       dot.position.set(d, 0.3, 0.5);
       mesh.add(dot);
     }
+  }
+
+  if (type === PLATFORM_SPIKE) {
+    // Spikes on top — triangular prisms (faked with stretched boxes rotated)
+    const spikeMat = new THREE.MeshBasicMaterial({ color: lightenHex(color, 0.15) });
+    const spikeCount = Math.max(2, Math.floor(width * 1.5));
+    for (let s = 0; s < spikeCount; s++) {
+      const spike = new THREE.Mesh(_box, spikeMat);
+      spike.scale.set(0.08, 0.35, 0.08);
+      spike.position.set((s / (spikeCount - 1) - 0.5) * 0.85, 0.55, 0);
+      mesh.add(spike);
+    }
+    // Warning stripe on the platform
+    const stripe = new THREE.Mesh(_box, new THREE.MeshBasicMaterial({ color: darkenHex(color, 0.2) }));
+    stripe.scale.set(1, 0.25, 1);
+    stripe.position.y = 0.3;
+    mesh.add(stripe);
   }
 
   return {
@@ -299,6 +289,10 @@ export function triggerCrumble(platform) {
 export function getBounciness(platform) {
   if (platform.type === PLATFORM_BOUNCY) return 2.0;
   return 1;
+}
+
+export function isSpiked(platform) {
+  return platform.type === PLATFORM_SPIKE;
 }
 
 export function cullPlatformsBelowY(minY, cameraY) {
