@@ -8,6 +8,7 @@ export const input = {
   jump: false,
   jumpHeld: false,
   chargeTime: 0,
+  tapDirection: 0,    // -1 (left edge) to 1 (right edge) — where the tap landed
   _jumpConsumed: false,
 
   consumeJump() {
@@ -294,10 +295,14 @@ function onPointerDown(e) {
   input.jumpHeld = true;
   input.chargeTime = 0;
 
-  // Touch fallback for direction (only when tilt not active)
+  // Record tap position as direction: -1 (left edge) to 1 (right edge)
+  // Center of screen = 0 (straight up)
+  const screenX = e.clientX / window.innerWidth;  // 0..1
+  input.tapDirection = (screenX - 0.5) * 2;       // -1..1
+
+  // Touch fallback for continuous movement (only when tilt not active)
   if (!tiltActive) {
-    const x = e.clientX / window.innerWidth;
-    touchSide = x < 0.5 ? -1 : 1;
+    touchSide = input.tapDirection > 0.1 ? 1 : input.tapDirection < -0.1 ? -1 : 0;
   }
 }
 
