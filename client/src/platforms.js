@@ -219,33 +219,37 @@ function createPlatform(id, x, y, width, type, color, rng) {
   }
 
   if (type === PLATFORM_SPIKE) {
-    // Big visible spikes — bright red/warning color, tall and obvious
-    const spikeMat = new THREE.MeshBasicMaterial({ color: 0xFF2222 });
-    const spikeCount = Math.max(3, Math.floor(width * 2));
+    // Fully red platform base
+    mesh.material.color.setHex(0xCC0000);
+    // Remove the normal top/bottom highlights — replace with red
+    mesh.children.forEach(c => {
+      if (c.material) c.material.color.setHex(0xAA0000);
+    });
+
+    // Vertical spikes pointing UP (tall triangular shapes)
+    const spikeMat = new THREE.MeshBasicMaterial({ color: 0xFF3333 });
+    const spikeCount = Math.max(3, Math.floor(width * 1.8));
     for (let s = 0; s < spikeCount; s++) {
+      // Each spike is a tall thin box (pointing up, no rotation)
       const spike = new THREE.Mesh(_box, spikeMat);
-      spike.scale.set(0.12, 0.6, 0.12);  // tall spikes
-      spike.position.set((s / (spikeCount - 1) - 0.5) * 0.88, 0.65, 0);
-      // Rotate to look pointy (diamond shape)
-      spike.rotation.z = Math.PI / 4;
+      spike.scale.set(0.08, 0.7, 0.08);
+      spike.position.set(
+        (s / (spikeCount - 1) - 0.5) * 0.85,
+        0.85,  // sitting on top, pointing up
+        0
+      );
       mesh.add(spike);
+
+      // Spike tip (smaller box on top for pointed look)
+      const tip = new THREE.Mesh(_box, new THREE.MeshBasicMaterial({ color: 0xFF6666 }));
+      tip.scale.set(0.04, 0.25, 0.04);
+      tip.position.set(
+        (s / (spikeCount - 1) - 0.5) * 0.85,
+        1.3,
+        0
+      );
+      mesh.add(tip);
     }
-    // Warning stripes — alternating dark/bright
-    const stripe1 = new THREE.Mesh(_box, new THREE.MeshBasicMaterial({ color: 0xFF4444 }));
-    stripe1.scale.set(1, 0.2, 1);
-    stripe1.position.y = 0.32;
-    mesh.add(stripe1);
-    const stripe2 = new THREE.Mesh(_box, new THREE.MeshBasicMaterial({ color: 0x220000 }));
-    stripe2.scale.set(1, 0.12, 1);
-    stripe2.position.y = 0.42;
-    mesh.add(stripe2);
-    // Danger glow underneath
-    const glow = new THREE.Mesh(_box, new THREE.MeshBasicMaterial({
-      color: 0xFF0000, transparent: true, opacity: 0.3,
-    }));
-    glow.scale.set(1.2, 0.5, 1.2);
-    glow.position.y = -0.1;
-    mesh.add(glow);
   }
 
   return {
