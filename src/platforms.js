@@ -219,20 +219,33 @@ function createPlatform(id, x, y, width, type, color, rng) {
   }
 
   if (type === PLATFORM_SPIKE) {
-    // Spikes on top — triangular prisms (faked with stretched boxes rotated)
-    const spikeMat = new THREE.MeshBasicMaterial({ color: lightenHex(color, 0.15) });
-    const spikeCount = Math.max(2, Math.floor(width * 1.5));
+    // Big visible spikes — bright red/warning color, tall and obvious
+    const spikeMat = new THREE.MeshBasicMaterial({ color: 0xFF2222 });
+    const spikeCount = Math.max(3, Math.floor(width * 2));
     for (let s = 0; s < spikeCount; s++) {
       const spike = new THREE.Mesh(_box, spikeMat);
-      spike.scale.set(0.08, 0.35, 0.08);
-      spike.position.set((s / (spikeCount - 1) - 0.5) * 0.85, 0.55, 0);
+      spike.scale.set(0.12, 0.6, 0.12);  // tall spikes
+      spike.position.set((s / (spikeCount - 1) - 0.5) * 0.88, 0.65, 0);
+      // Rotate to look pointy (diamond shape)
+      spike.rotation.z = Math.PI / 4;
       mesh.add(spike);
     }
-    // Warning stripe on the platform
-    const stripe = new THREE.Mesh(_box, new THREE.MeshBasicMaterial({ color: darkenHex(color, 0.2) }));
-    stripe.scale.set(1, 0.25, 1);
-    stripe.position.y = 0.3;
-    mesh.add(stripe);
+    // Warning stripes — alternating dark/bright
+    const stripe1 = new THREE.Mesh(_box, new THREE.MeshBasicMaterial({ color: 0xFF4444 }));
+    stripe1.scale.set(1, 0.2, 1);
+    stripe1.position.y = 0.32;
+    mesh.add(stripe1);
+    const stripe2 = new THREE.Mesh(_box, new THREE.MeshBasicMaterial({ color: 0x220000 }));
+    stripe2.scale.set(1, 0.12, 1);
+    stripe2.position.y = 0.42;
+    mesh.add(stripe2);
+    // Danger glow underneath
+    const glow = new THREE.Mesh(_box, new THREE.MeshBasicMaterial({
+      color: 0xFF0000, transparent: true, opacity: 0.3,
+    }));
+    glow.scale.set(1.2, 0.5, 1.2);
+    glow.position.y = -0.1;
+    mesh.add(glow);
   }
 
   return {

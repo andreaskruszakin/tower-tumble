@@ -303,8 +303,20 @@ canvas#game {
   margin-top: 4px;
 }
 
+/* Interactive zone — no accidental restart */
+#go-interactive {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  pointer-events: auto;
+  width: 100%;
+  max-width: 280px;
+}
+
 #go-leaderboard {
-  margin-top: 10px;
+  margin-top: 6px;
   text-align: center;
   border: 1px solid rgba(255,232,200,0.12);
   padding: 8px 14px;
@@ -327,12 +339,20 @@ canvas#game {
 }
 #lb-list .you { color: #ffb870; }
 
-.go-tap {
-  font-size: 8px;
-  color: rgba(255,232,200,0.5);
-  animation: pulse 1.5s ease-in-out infinite;
-  margin-top: 10px;
+#restart-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  background: rgba(255,232,200,0.1);
+  border: 2px solid rgba(255,232,200,0.3);
+  color: #ffe8c8;
+  padding: 12px 28px;
+  cursor: pointer;
+  border-radius: 3px;
+  margin-top: 12px;
+  pointer-events: auto;
+  transition: background 0.15s, border-color 0.15s;
 }
+#restart-btn:hover { background: rgba(255,232,200,0.2); border-color: rgba(255,232,200,0.5); }
 
 .go-links {
   margin-top: 8px;
