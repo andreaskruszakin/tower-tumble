@@ -8,6 +8,7 @@ export const input = {
   jump: false,          // true for one frame when jump released
   jumpHeld: false,      // true while jump button is held
   chargeTime: 0,        // how long jump was held (seconds, 0 to CHARGE_TIME)
+  autoJump: false,      // auto-jump mode: tap once to toggle, character jumps on landing
   _jumpConsumed: false,
 
   consumeJump() {
