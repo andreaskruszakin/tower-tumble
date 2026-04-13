@@ -301,9 +301,11 @@ export function getBounciness(platform) {
   return 1;
 }
 
-export function cullPlatformsBelowY(minY) {
+export function cullPlatformsBelowY(minY, cameraY) {
+  // Show platforms well above camera so nothing pops in
+  const viewTop = (cameraY || minY) + 140;
   for (const p of platforms) {
-    p.mesh.visible = p.active && p.y > minY - 10 && p.y < minY + 80;
+    p.mesh.visible = p.active && p.y > minY - 5 && p.y < viewTop;
   }
 }
 
