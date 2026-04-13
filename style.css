@@ -338,6 +338,9 @@ canvas#game {
   text-align: left;
 }
 #lb-list .you { color: #ffb870; }
+#lb-list .lb-sep { color: rgba(255,232,200,0.25); font-size: 6px; margin: 3px 0; }
+#lb-list .lb-you { font-size: 7px; margin-top: 2px; }
+#lb-list .lb-gap { color: rgba(255,232,200,0.35); font-size: 6px; }
 
 #restart-btn {
   font-family: 'Press Start 2P', monospace;
