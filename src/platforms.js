@@ -3,7 +3,7 @@ import { createRNG, rngRange } from './rng.js';
 import {
   TOWER_WIDTH, HALF_WIDTH,
   PLATFORM_HEIGHT, PLATFORM_MIN_WIDTH, PLATFORM_MAX_WIDTH,
-  LAYER_SPACING, TOTAL_LAYERS, GENERATE_AHEAD,
+  LAYER_SPACING, TOTAL_LAYERS, GENERATE_AHEAD, MAX_PLATFORMS_PER_LAYER,
   PLATFORM_STATIC, PLATFORM_CRUMBLE, PLATFORM_BOUNCY, PLATFORM_MOVING,
   CRUMBLE_TIME, CRUMBLE_RESPAWN,
   MOVING_AMPLITUDE, MOVING_PERIOD,
@@ -63,7 +63,7 @@ export function generatePlatforms(scene, seed) {
     const difficulty = Math.min(1, layer / 200);
     const biome = getBiome(y);
 
-    const count = Math.max(1, Math.round(4 - difficulty * 2.5 + rngState() * 0.5));
+    const count = Math.max(1, Math.min(MAX_PLATFORMS_PER_LAYER, Math.round(1.5 + (1 - difficulty) * 0.8 + rngState() * 0.5)));
     const layerPlatforms = []; // track placed platforms to prevent overlap
 
     for (let i = 0; i < count; i++) {
@@ -119,7 +119,7 @@ export function extendPlatformsIfNeeded(playerY) {
     const y = layer * LAYER_SPACING;
     const difficulty = Math.min(1, layer / 200);
     const biome = getBiome(y);
-    const count = Math.max(1, Math.round(4 - difficulty * 2.5 + rngState() * 0.5));
+    const count = Math.max(1, Math.min(MAX_PLATFORMS_PER_LAYER, Math.round(1.5 + (1 - difficulty) * 0.8 + rngState() * 0.5)));
     const layerPlats = [];
 
     for (let i = 0; i < count; i++) {

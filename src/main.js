@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createCharacter, animateCharacter, triggerLandSquash, triggerJumpStretch } from './character.js';
+import { createCharacter, animateCharacter, triggerLandSquash, triggerJumpStretch, triggerBackflip } from './character.js';
 import { initInput, updateInput, input, requestGyroPermission } from './input.js';
 import { createCamera, updateCamera, triggerShake, getCamera } from './camera.js';
 import { generatePlatforms, getPlatforms, updatePlatforms, triggerCrumble, getBounciness, cullPlatformsBelowY, extendPlatformsIfNeeded } from './platforms.js';
@@ -11,7 +11,7 @@ import {
   MOMENTUM_JUMP_SCALE, MAX_HORIZONTAL_SPEED, HORIZONTAL_ACCEL,
   GROUND_FRICTION, AIR_FRICTION, WALL_BOUNCE_FACTOR, WALL_BOUNCE_BOOST,
   CHAR_WIDTH, CHAR_HEIGHT, PLATFORM_HEIGHT,
-  BIOMES, WALL_COLOR, FLOOR_COLOR,
+  BIOMES, WALL_COLOR,
   CAMERA_SCROLL_START, CAMERA_SCROLL_ACCEL, CAMERA_SCROLL_INTERVAL, CAMERA_SCROLL_MAX,
   COMBO_TIERS, CAMERA_DISTANCE,
 } from './constants.js';
@@ -71,16 +71,7 @@ const skyMat = new THREE.MeshBasicMaterial({ color: 0xFFB7A5, side: THREE.BackSi
 const sky = new THREE.Mesh(skyGeo, skyMat);
 scene.add(sky);
 
-// --- Death zone indicator (bottom of screen glow) ---
-const deathGeo = new THREE.PlaneGeometry(TOWER_WIDTH + 4, 3);
-const deathMat = new THREE.MeshBasicMaterial({
-  color: FLOOR_COLOR,
-  transparent: true,
-  opacity: 0.4,
-});
-const deathPlane = new THREE.Mesh(deathGeo, deathMat);
-deathPlane.position.z = 0.5;
-scene.add(deathPlane);
+// No red death line — camera bottom IS the death zone (Icy Tower style)
 
 // --- Generate platforms ---
 let gameSeed = Math.floor(Math.random() * 0xFFFFFFFF);
@@ -206,23 +197,23 @@ function gameLoop(now) {
     startMusic();
   }
 
-  // --- Auto-scrolling camera / death line ---
+  // --- Auto-scrolling camera (Icy Tower style — camera IS the death zone) ---
   if (scroll.started) {
     scroll.gameTime += dt;
+    // Camera accelerates the higher you go — gets relentless
     const speedUps = Math.floor(scroll.gameTime / CAMERA_SCROLL_INTERVAL);
     scroll.speed = Math.min(CAMERA_SCROLL_MAX, CAMERA_SCROLL_START + speedUps * CAMERA_SCROLL_ACCEL);
-    scroll.y += scroll.speed * dt;
+    // Also boost speed based on player height (the higher, the faster)
+    const heightBonus = Math.min(1.5, state.maxHeight * 0.003);
+    scroll.y += (scroll.speed + heightBonus) * dt;
 
-    // Death check: player below the scroll line
-    if (state.y < scroll.y) {
+    // Death: player falls below the camera bottom
+    const cameraBottom = getCamera().position.y - 8;
+    if (state.y < cameraBottom) {
       showGameOver();
       return;
     }
   }
-
-  // Update death zone visual
-  deathPlane.position.y = scroll.y + 0.5;
-  deathMat.opacity = 0.3 + Math.sin(now * 0.004) * 0.1;
 
   // --- Platforms ---
   extendPlatformsIfNeeded(state.y);
@@ -420,11 +411,12 @@ function onLand(platformY, platform) {
     comboEl.classList.add('pop');
     setTimeout(() => comboEl.classList.remove('pop'), 120);
 
-    // Splash text + audio for combos
+    // Splash text + audio + backflip for combos
     if (state.combo >= 2) {
       showComboSplash(state.combo);
       playCombo(state.combo);
       triggerGlitch(0.5 + state.combo * 0.1);
+      triggerBackflip(player, state.combo);
     }
     if (state.combo >= 4) triggerShake(0.15);
     if (state.combo >= 8) triggerShake(0.3);
