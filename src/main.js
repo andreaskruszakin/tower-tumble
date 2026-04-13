@@ -588,9 +588,10 @@ function showGameOver() {
 
   // Restart on tap (but not on the input/button area)
   const restart = (e) => {
-    // Don't restart if tapping input or button
+    // Don't restart if tapping input, button, leaderboard, or links
     if (e.target === nameInput || e.target === submitBtn) return;
     if (e.target.closest('#name-input-row') || e.target.closest('#go-leaderboard')) return;
+    if (e.target.closest('.go-links') || e.target.tagName === 'A') return;
 
     gameOverEl.classList.add('hidden');
     gameOverEl.removeEventListener('pointerdown', restart);
