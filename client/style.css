@@ -259,6 +259,50 @@ canvas#game {
   animation: pulse 0.8s ease-in-out infinite;
 }
 
+/* Name input */
+#name-input-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+  pointer-events: auto;
+}
+
+#name-input {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  background: rgba(255,232,200,0.08);
+  border: 1px solid rgba(255,232,200,0.25);
+  color: #ffe8c8;
+  padding: 6px 8px;
+  width: 120px;
+  outline: none;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+#name-input::placeholder { color: rgba(255,232,200,0.25); }
+#name-input:focus { border-color: rgba(255,180,100,0.5); }
+
+#submit-score {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  background: rgba(255,180,100,0.2);
+  border: 1px solid rgba(255,180,100,0.4);
+  color: #ffb870;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 2px;
+}
+#submit-score:hover { background: rgba(255,180,100,0.3); }
+#submit-score:disabled { opacity: 0.4; cursor: default; }
+
+#submit-status {
+  font-size: 7px;
+  color: #b8e0d2;
+  text-shadow: 1px 1px 0 #000;
+  margin-top: 4px;
+}
+
 #go-leaderboard {
   margin-top: 10px;
   text-align: center;

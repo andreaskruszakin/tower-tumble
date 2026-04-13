@@ -121,29 +121,63 @@ const goPointsEl = document.getElementById('go-points');
 const goComboEl = document.getElementById('go-combo');
 const goBestEl = document.getElementById('go-best');
 const lbList = document.getElementById('lb-list');
+const nameInput = document.getElementById('name-input');
+const submitBtn = document.getElementById('submit-score');
+const submitStatus = document.getElementById('submit-status');
 
 let splashTimeout = null;
 
-// --- Leaderboard (localStorage) ---
-function getLeaderboard() {
-  try { return JSON.parse(localStorage.getItem('tt-leaderboard') || '[]'); }
-  catch { return []; }
+const API_URL = 'https://tower-tumble-leaderboard.aicursus.workers.dev';
+
+// Restore saved name
+nameInput.value = localStorage.getItem('tt-name') || '';
+
+// --- Global Leaderboard ---
+async function fetchLeaderboard() {
+  lbList.textContent = 'LOADING...';
+  try {
+    const res = await fetch(`${API_URL}/scores`);
+    const scores = await res.json();
+    if (scores.length === 0) {
+      lbList.textContent = 'NO SCORES YET';
+      return;
+    }
+    lbList.innerHTML = scores.slice(0, 10).map((entry, i) => {
+      const medal = i === 0 ? '♛' : i === 1 ? '♕' : i === 2 ? '���' : `${i + 1}.`;
+      return `<div>${medal} ${entry.name} — ${entry.points} PTS (FL ${entry.floor})</div>`;
+    }).join('');
+  } catch {
+    lbList.textContent = 'OFFLINE';
+  }
 }
 
-function saveToLeaderboard(points, floor) {
-  const lb = getLeaderboard();
-  lb.push({ points, floor, date: Date.now() });
-  lb.sort((a, b) => b.points - a.points);
-  localStorage.setItem('tt-leaderboard', JSON.stringify(lb.slice(0, 10)));
-  return lb[0].points === points; // true if new high score
+async function submitScore(name, points, floor, combo) {
+  submitBtn.disabled = true;
+  submitStatus.classList.remove('hidden');
+  submitStatus.textContent = 'SUBMITTING...';
+  try {
+    const res = await fetch(`${API_URL}/scores`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, points, floor, combo }),
+    });
+    const data = await res.json();
+    submitStatus.textContent = `RANK #${data.rank}!`;
+    localStorage.setItem('tt-name', name);
+    // Refresh leaderboard
+    await fetchLeaderboard();
+  } catch {
+    submitStatus.textContent = 'SUBMIT FAILED';
+    submitBtn.disabled = false;
+  }
 }
 
-function renderLeaderboard(currentPoints) {
-  const lb = getLeaderboard();
-  lbList.innerHTML = lb.slice(0, 5).map((entry, i) => {
-    const isYou = entry.points === currentPoints && entry.date > Date.now() - 5000;
-    return `<div class="${isYou ? 'you' : ''}">${i + 1}. ${entry.points} PTS (FL ${entry.floor})</div>`;
-  }).join('');
+// Local high score tracking
+function getLocalBest() {
+  return parseInt(localStorage.getItem('tt-best') || '0', 10);
+}
+function setLocalBest(pts) {
+  localStorage.setItem('tt-best', String(pts));
 }
 
 // --- Combo splash ---
@@ -514,24 +548,46 @@ function showGameOver() {
   stopMusic();
 
   const floorNum = Math.floor(state.maxHeight / LAYER_SPACING);
-  const isNewBest = saveToLeaderboard(state.points, floorNum);
+  const oldBest = getLocalBest();
+  const isNewBest = state.points > oldBest;
+  if (isNewBest) setLocalBest(state.points);
 
   goHeightEl.textContent = `FLOOR ${floorNum}`;
   goPointsEl.textContent = `${state.points} PTS`;
   goComboEl.textContent = `BEST COMBO: x${state.bestCombo}`;
 
-  if (isNewBest) {
+  if (isNewBest && state.points > 0) {
     goBestEl.classList.remove('hidden');
   } else {
     goBestEl.classList.add('hidden');
   }
 
-  renderLeaderboard(state.points);
+  // Reset submit UI
+  submitBtn.disabled = false;
+  submitStatus.classList.add('hidden');
+
+  // Fetch global leaderboard
+  fetchLeaderboard();
   gameOverEl.classList.remove('hidden');
 
-  const restart = () => {
+  // Submit score handler
+  const onSubmit = () => {
+    const name = nameInput.value.trim().toUpperCase() || 'ANON';
+    submitScore(name, state.points, floorNum, state.bestCombo);
+  };
+  submitBtn.onclick = onSubmit;
+  nameInput.onkeydown = (e) => { if (e.key === 'Enter') onSubmit(); };
+
+  // Restart on tap (but not on the input/button area)
+  const restart = (e) => {
+    // Don't restart if tapping input or button
+    if (e.target === nameInput || e.target === submitBtn) return;
+    if (e.target.closest('#name-input-row') || e.target.closest('#go-leaderboard')) return;
+
     gameOverEl.classList.add('hidden');
     gameOverEl.removeEventListener('pointerdown', restart);
+    submitBtn.onclick = null;
+    nameInput.onkeydown = null;
 
     state.x = 0; state.y = 0.2; state.vx = 0; state.vy = 0;
     state.isGrounded = true; state.alive = true;

@@ -1,0 +1,7 @@
+name = "tower-tumble-leaderboard"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "SCORES"
+id = "c944ca2283a24058aa656fca74053eb6"

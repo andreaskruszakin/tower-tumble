@@ -60,9 +60,16 @@
       <div id="go-points">0 PTS</div>
       <div id="go-combo">BEST COMBO: x0</div>
       <div id="go-best" class="hidden">NEW HIGH SCORE!</div>
+      <!-- Name input -->
+      <div id="name-input-row">
+        <input type="text" id="name-input" maxlength="12" placeholder="YOUR NAME" autocomplete="off" spellcheck="false">
+        <button id="submit-score">SUBMIT</button>
+      </div>
+      <div id="submit-status" class="hidden"></div>
+      <!-- Global leaderboard -->
       <div id="go-leaderboard">
-        <div class="lb-title">TOP SCORES</div>
-        <div id="lb-list"></div>
+        <div class="lb-title">GLOBAL TOP SCORES</div>
+        <div id="lb-list">LOADING...</div>
       </div>
       <div class="go-tap">TAP TO RETRY</div>
       <div class="go-links">
