@@ -233,7 +233,7 @@ function showBiomeName(name) {
 // --- Input ---
 initInput(canvas);
 
-// --- Start screen ---
+// --- Start screen — this tap IS the user gesture for iOS permissions ---
 startScreen.addEventListener('pointerdown', () => {
   if (gameStarted) return;
   gameStarted = true;
@@ -241,6 +241,8 @@ startScreen.addEventListener('pointerdown', () => {
   hud.classList.remove('hidden');
   initAudio();
   resumeAudio();
+  // Request tilt permission here (must be from user gesture for iOS Safari)
+  requestGyroPermission();
 });
 
 // --- Resize ---
@@ -275,7 +277,6 @@ function gameLoop(now) {
   // First real input starts the death line
   if (!deathLine.started && (input.horizontal !== 0 || input.jump || input.jumpHeld)) {
     deathLine.started = true;
-    requestGyroPermission();
     playRoundStart();
     startMusic();
   }
