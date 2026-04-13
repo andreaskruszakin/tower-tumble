@@ -133,19 +133,46 @@ const API_URL = 'https://tower-tumble-leaderboard.aicursus.workers.dev';
 nameInput.value = localStorage.getItem('tt-name') || '';
 
 // --- Global Leaderboard ---
-async function fetchLeaderboard() {
+async function fetchLeaderboard(currentPoints, currentFloor) {
   lbList.textContent = 'LOADING...';
   try {
     const res = await fetch(`${API_URL}/scores`);
     const scores = await res.json();
     if (scores.length === 0) {
-      lbList.textContent = 'NO SCORES YET';
+      lbList.innerHTML = '<div class="dim">NO SCORES YET</div>';
+      appendYouRow(currentPoints, currentFloor, 0);
       return;
     }
-    lbList.innerHTML = scores.slice(0, 10).map((entry, i) => {
-      const medal = i === 0 ? '♛' : i === 1 ? '♕' : i === 2 ? '���' : `${i + 1}.`;
-      return `<div>${medal} ${entry.name} — ${entry.points} PTS (FL ${entry.floor})</div>`;
+    // Show top 10
+    const top10 = scores.slice(0, 10);
+    let html = top10.map((entry, i) => {
+      const medal = i === 0 ? '♛' : i === 1 ? '♕' : i === 2 ? '♖' : `${i + 1}.`;
+      return `<div>${medal} ${entry.name} — ${entry.points} PTS</div>`;
     }).join('');
+
+    // 11th row: current player's best from localStorage
+    const localBest = getLocalBest();
+    const localName = localStorage.getItem('tt-name') || 'YOU';
+    const showPts = Math.max(localBest, currentPoints || 0);
+    const showFloor = currentFloor || Math.floor((localBest / 10) || 0);
+
+    // Find where the player would rank
+    let rank = top10.length + 1;
+    for (let i = 0; i < top10.length; i++) {
+      if (showPts >= top10[i].points) { rank = i + 1; break; }
+    }
+
+    if (rank <= 10) {
+      html += `<div class="you lb-you">── YOU: #${rank} ──</div>`;
+    } else {
+      const gap = top10.length > 0 ? top10[top10.length - 1].points - showPts : 0;
+      html += `<div class="lb-sep">···</div>`;
+      html += `<div class="you lb-you">${rank}. ${localName} — ${showPts} PTS`;
+      if (gap > 0) html += ` <span class="lb-gap">(${gap} to top 10)</span>`;
+      html += `</div>`;
+    }
+
+    lbList.innerHTML = html;
   } catch {
     lbList.textContent = 'OFFLINE';
   }
@@ -165,7 +192,7 @@ async function submitScore(name, points, floor, combo) {
     submitStatus.textContent = `RANK #${data.rank}!`;
     localStorage.setItem('tt-name', name);
     // Refresh leaderboard
-    await fetchLeaderboard();
+    await fetchLeaderboard(points, floor);
   } catch {
     submitStatus.textContent = 'SUBMIT FAILED';
     submitBtn.disabled = false;
@@ -566,8 +593,8 @@ function showGameOver() {
   submitBtn.disabled = false;
   submitStatus.classList.add('hidden');
 
-  // Fetch global leaderboard
-  fetchLeaderboard();
+  // Fetch global leaderboard with current session score
+  fetchLeaderboard(state.points, floorNum);
   gameOverEl.classList.remove('hidden');
 
   // Submit score handler
