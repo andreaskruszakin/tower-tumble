@@ -345,7 +345,7 @@ function gameLoop(now) {
     chargeBar.classList.remove('visible');
   }
 
-  // --- Jump (tap = instant, hold = charge for bigger jump) ---
+  // --- Jump (tap position = direction, hold = charge) ---
   if (input.consumeJump() && state.isGrounded) {
     const chargeRatio = getChargeRatio();
     let jumpVel = BASE_JUMP_VELOCITY + (MAX_JUMP_VELOCITY - BASE_JUMP_VELOCITY) * speedRatio * MOMENTUM_JUMP_SCALE;
@@ -356,6 +356,15 @@ function gameLoop(now) {
       jumpVel *= getBounciness(state.currentPlatform);
     }
     state.vy = jumpVel;
+
+    // Mobile: tap position controls jump direction
+    // tapDirection: -1 (left edge) to 1 (right edge)
+    // Apply as horizontal velocity boost on jump
+    if (isMobile && Math.abs(input.tapDirection) > 0.05) {
+      const directionForce = input.tapDirection * MAX_HORIZONTAL_SPEED * 0.8;
+      state.vx = directionForce;
+    }
+
     state.isGrounded = false;
     state.lastGroundY = state.y;
     state.currentPlatform = null;
