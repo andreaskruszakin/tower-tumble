@@ -71,9 +71,9 @@ scene.add(sky);
 let gameSeed = Math.floor(Math.random() * 0xFFFFFFFF);
 generatePlatforms(scene, gameSeed);
 
-// Player
+// Player — feet on ground (ground top = 0, character origin is at feet)
 const player = createCharacter(0);
-player.position.set(0, 0.2, 0);
+player.position.set(0, 0, 0);
 scene.add(player);
 
 // Shadow
@@ -85,7 +85,7 @@ scene.add(shadow);
 
 // --- State ---
 const state = {
-  x: 0, y: 0.2, vx: 0, vy: 0,
+  x: 0, y: 0, vx: 0, vy: 0,
   isGrounded: true, lastGroundY: 0,
   alive: true, maxHeight: 0,
   combo: 0, bestCombo: 0,
@@ -362,8 +362,8 @@ function gameLoop(now) {
 
   if (state.vy <= 0) {
     // Ground (only if death line hasn't passed it)
-    if (state.y <= 0.2 && deathLine.y < -1) {
-      state.y = 0.2;
+    if (state.y <= 0 && deathLine.y < -1) {
+      state.y = 0;
       if (!state.isGrounded) onLand(0, null);
       state.vy = 0;
       state.isGrounded = true;
@@ -406,7 +406,7 @@ function gameLoop(now) {
     // Walk-off-edge
     if (!landed && state.isGrounded) {
       let onPlatform = false;
-      if (state.y <= 0.3 && deathLine.y < -1) {
+      if (state.y <= 0.1 && deathLine.y < -1) {
         onPlatform = true;
       } else if (state.currentPlatform && state.currentPlatform.active) {
         const p = state.currentPlatform;
@@ -598,12 +598,12 @@ function showGameOver() {
     submitBtn.onclick = null;
     nameInput.onkeydown = null;
 
-    state.x = 0; state.y = 0.2; state.vx = 0; state.vy = 0;
+    state.x = 0; state.y = 0; state.vx = 0; state.vy = 0;
     state.isGrounded = true; state.alive = true;
     state.maxHeight = 0; state.combo = 0; state.bestCombo = 0;
     state.lastGroundY = 0; state.currentPlatform = null;
     state.points = 0;
-    player.position.set(0, 0.2, 0);
+    player.position.set(0, 0, 0);
 
     deathLine.y = -5; deathLine.gameTime = 0; deathLine.started = false;
     currentBiomeIdx = 0;
