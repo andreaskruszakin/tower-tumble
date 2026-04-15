@@ -270,22 +270,17 @@ function onKeyDown(e) {
   keysDown.add(e.code);
   if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
     e.preventDefault();
-    if (!input.jumpHeld) {
-      input.jumpHeld = true;
-      input.chargeTime = 0;
+    // Instant jump on press — no hold-to-charge on desktop
+    if (!input.jump && !input._jumpConsumed) {
+      input.jump = true;
+      input._jumpConsumed = false;
+      input.chargeTime = CHARGE_TIME; // full charge every press
     }
   }
 }
 
 function onKeyUp(e) {
   keysDown.delete(e.code);
-  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
-    if (input.jumpHeld) {
-      input.jumpHeld = false;
-      input.jump = true;
-      input._jumpConsumed = false;
-    }
-  }
 }
 
 // --- Touch ---

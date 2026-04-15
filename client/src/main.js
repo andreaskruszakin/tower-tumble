@@ -345,7 +345,7 @@ function gameLoop(now) {
     chargeBar.classList.remove('visible');
   }
 
-  // --- Jump (tap position = direction, hold = charge) ---
+  // --- Jump (desktop: instant on press, mobile: tap position = direction) ---
   if (input.consumeJump() && state.isGrounded) {
     const chargeRatio = getChargeRatio();
     let jumpVel = BASE_JUMP_VELOCITY + (MAX_JUMP_VELOCITY - BASE_JUMP_VELOCITY) * speedRatio * MOMENTUM_JUMP_SCALE;

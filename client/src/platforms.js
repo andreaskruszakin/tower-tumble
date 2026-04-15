@@ -72,11 +72,13 @@ export function generatePlatforms(scene, seed) {
 
 // Shared layer generation — used by both initial and streaming
 function generateLayer(layer) {
-  const y = layer * LAYER_SPACING;
+  // Starter layers are closer together so the first jump isn't too high
+  const y = layer <= 5
+    ? 0.5 + (layer - 1) * 0.55   // layers 1-5: start at 0.5, spaced 0.55 apart
+    : 0.5 + 4 * 0.55 + (layer - 5) * LAYER_SPACING; // then normal spacing
 
-  // Don't spawn platforms in the player's spawn zone (first 2 units of height)
-  // so the character isn't stuck inside a platform at the start
-  if (y < 2.0) return;
+  // Don't spawn platforms inside the player (standing at y=0)
+  if (y < 0.4) return;
 
   const biome = getBiome(y);
   const density = biome.density || 1;
@@ -97,8 +99,11 @@ function generateLayer(layer) {
       type = PLATFORM_SPIKE;
     }
 
-    const widthRange = density > 0.5 ? 1 : 0.7; // narrower platforms in hard biomes
-    const width = PLATFORM_MIN_WIDTH + widthRange * (PLATFORM_MAX_WIDTH - PLATFORM_MIN_WIDTH) * rngState();
+    const isStarter = layer <= 5;
+    const widthRange = isStarter ? 1.2 : density > 0.5 ? 1 : 0.7;
+    const width = isStarter
+      ? 3.0 + rngState() * 2.0  // starter platforms: 3-5 units wide (generous)
+      : PLATFORM_MIN_WIDTH + widthRange * (PLATFORM_MAX_WIDTH - PLATFORM_MIN_WIDTH) * rngState();
     const maxX = HALF_WIDTH - width / 2 - 0.2;
 
     let x = rngRange(rngState, -maxX, maxX);
